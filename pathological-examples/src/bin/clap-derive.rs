@@ -1,8 +1,8 @@
 // Copyright (c) The camino Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-use pathological::AbsoluteSystemPathBuf;
 use clap::Parser;
+use pathological::AbsoluteSystemPathBuf;
 
 /// This example shows how a `AbsoluteSystemPath` can be used with `clap`'s derive-based argument parsing.
 ///

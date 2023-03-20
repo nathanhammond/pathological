@@ -852,7 +852,10 @@ impl AbsoluteSystemPath {
     /// let prefix = AbsoluteSystemPathBuf::from("/test/");
     /// assert_eq!(path.strip_prefix(prefix), Ok(AbsoluteSystemPath::new("haha/foo.txt")));
     /// ```
-    pub fn strip_prefix(&self, base: impl AsRef<Path>) -> Result<&AbsoluteSystemPath, StripPrefixError> {
+    pub fn strip_prefix(
+        &self,
+        base: impl AsRef<Path>,
+    ) -> Result<&AbsoluteSystemPath, StripPrefixError> {
         self.0.strip_prefix(base).map(|path| {
             // SAFETY: self is valid UTF-8, and strip_prefix returns a part of self (or an empty
             // string), so it is valid UTF-8 as well.
@@ -1285,7 +1288,9 @@ impl AbsoluteSystemPath {
     /// ```
     #[inline]
     pub fn read_dir_utf8(&self) -> io::Result<ReadDirAbsoluteSystemPath> {
-        self.0.read_dir().map(|inner| ReadDirAbsoluteSystemPath { inner })
+        self.0
+            .read_dir()
+            .map(|inner| ReadDirAbsoluteSystemPath { inner })
     }
 
     /// Returns `true` if the path points at an existing entity.
@@ -1779,7 +1784,9 @@ pub enum AbsoluteSystemPathComponent<'a> {
 impl<'a> AbsoluteSystemPathComponent<'a> {
     unsafe fn new(component: Component<'a>) -> AbsoluteSystemPathComponent<'a> {
         match component {
-            Component::Prefix(prefix) => AbsoluteSystemPathComponent::Prefix(AbsoluteSystemPathPrefixComponent(prefix)),
+            Component::Prefix(prefix) => {
+                AbsoluteSystemPathComponent::Prefix(AbsoluteSystemPathPrefixComponent(prefix))
+            }
             Component::RootDir => AbsoluteSystemPathComponent::RootDir,
             Component::CurDir => AbsoluteSystemPathComponent::CurDir,
             Component::ParentDir => AbsoluteSystemPathComponent::ParentDir,
@@ -2004,14 +2011,18 @@ impl<'a> AbsoluteSystemPathPrefixComponent<'a> {
         // SAFETY for all the below unsafe blocks: the path self was originally constructed from was
         // UTF-8 so any parts of it are valid UTF-8
         match self.0.kind() {
-            Prefix::Verbatim(prefix) => AbsoluteSystemPathPrefix::Verbatim(unsafe { assume_utf8(prefix) }),
+            Prefix::Verbatim(prefix) => {
+                AbsoluteSystemPathPrefix::Verbatim(unsafe { assume_utf8(prefix) })
+            }
             Prefix::VerbatimUNC(server, share) => {
                 let server = unsafe { assume_utf8(server) };
                 let share = unsafe { assume_utf8(share) };
                 AbsoluteSystemPathPrefix::VerbatimUNC(server, share)
             }
             Prefix::VerbatimDisk(drive) => AbsoluteSystemPathPrefix::VerbatimDisk(drive),
-            Prefix::DeviceNS(prefix) => AbsoluteSystemPathPrefix::DeviceNS(unsafe { assume_utf8(prefix) }),
+            Prefix::DeviceNS(prefix) => {
+                AbsoluteSystemPathPrefix::DeviceNS(unsafe { assume_utf8(prefix) })
+            }
             Prefix::UNC(server, share) => {
                 let server = unsafe { assume_utf8(server) };
                 let share = unsafe { assume_utf8(share) };
@@ -2872,7 +2883,10 @@ macro_rules! impl_cmp_str {
         impl<'a, 'b> PartialOrd<$rhs> for $lhs {
             #[inline]
             fn partial_cmp(&self, other: &$rhs) -> Option<std::cmp::Ordering> {
-                <AbsoluteSystemPath as PartialOrd>::partial_cmp(self, AbsoluteSystemPath::new(other))
+                <AbsoluteSystemPath as PartialOrd>::partial_cmp(
+                    self,
+                    AbsoluteSystemPath::new(other),
+                )
             }
         }
 
@@ -2880,7 +2894,10 @@ macro_rules! impl_cmp_str {
         impl<'a, 'b> PartialOrd<$lhs> for $rhs {
             #[inline]
             fn partial_cmp(&self, other: &$lhs) -> Option<std::cmp::Ordering> {
-                <AbsoluteSystemPath as PartialOrd>::partial_cmp(AbsoluteSystemPath::new(self), other)
+                <AbsoluteSystemPath as PartialOrd>::partial_cmp(
+                    AbsoluteSystemPath::new(self),
+                    other,
+                )
             }
         }
     };
