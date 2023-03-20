@@ -6,7 +6,7 @@
 
 //! UTF-8 encoded paths.
 //!
-//! `camino` is an extension of the `std::path` module that adds new [`Utf8PathBuf`] and [`Utf8Path`]
+//! `pathological` is an extension of the `std::path` module that adds new [`AbsoluteSystemPathBuf`] and [`AbsoluteSystemPath`]
 //! types. These are like the standard library's [`PathBuf`] and [`Path`] types, except they are
 //! guaranteed to only contain UTF-8 encoded data. Therefore, they expose the ability to get their
 //! contents as strings, they implement `Display`, etc.
@@ -30,7 +30,7 @@
 //! as  necessary. However, because this invariant is not encoded in the `Path` type, conversions such as
 //! `path.to_str().unwrap()` need to be repeated again and again, creating a frustrating experience.
 //!
-//! Instead, `camino` allows you to check that your paths are UTF-8 *once*, and then manipulate them
+//! Instead, `pathological` allows you to check that your paths are UTF-8 *once*, and then manipulate them
 //! as valid UTF-8 from there on, avoiding repeated lossy and confusing conversions.
 
 use std::{
@@ -61,21 +61,21 @@ mod tests;
 /// An owned, mutable UTF-8 path (akin to [`String`]).
 ///
 /// This type provides methods like [`push`] and [`set_extension`] that mutate
-/// the path in place. It also implements [`Deref`] to [`Utf8Path`], meaning that
-/// all methods on [`Utf8Path`] slices are available on `Utf8PathBuf` values as well.
+/// the path in place. It also implements [`Deref`] to [`AbsoluteSystemPath`], meaning that
+/// all methods on [`AbsoluteSystemPath`] slices are available on `AbsoluteSystemPathBuf` values as well.
 ///
-/// [`push`]: Utf8PathBuf::push
-/// [`set_extension`]: Utf8PathBuf::set_extension
+/// [`push`]: AbsoluteSystemPathBuf::push
+/// [`set_extension`]: AbsoluteSystemPathBuf::set_extension
 ///
 /// # Examples
 ///
-/// You can use [`push`] to build up a `Utf8PathBuf` from
+/// You can use [`push`] to build up a `AbsoluteSystemPathBuf` from
 /// components:
 ///
 /// ```
-/// use camino::Utf8PathBuf;
+/// use pathological::AbsoluteSystemPathBuf;
 ///
-/// let mut path = Utf8PathBuf::new();
+/// let mut path = AbsoluteSystemPathBuf::new();
 ///
 /// path.push(r"C:\");
 /// path.push("windows");
@@ -88,18 +88,18 @@ mod tests;
 /// to do this when you know all of the components ahead of time:
 ///
 /// ```
-/// use camino::Utf8PathBuf;
+/// use pathological::AbsoluteSystemPathBuf;
 ///
-/// let path: Utf8PathBuf = [r"C:\", "windows", "system32.dll"].iter().collect();
+/// let path: AbsoluteSystemPathBuf = [r"C:\", "windows", "system32.dll"].iter().collect();
 /// ```
 ///
 /// We can still do better than this! Since these are all strings, we can use
 /// `From::from`:
 ///
 /// ```
-/// use camino::Utf8PathBuf;
+/// use pathological::AbsoluteSystemPathBuf;
 ///
-/// let path = Utf8PathBuf::from(r"C:\windows\system32.dll");
+/// let path = AbsoluteSystemPathBuf::from(r"C:\windows\system32.dll");
 /// ```
 ///
 /// Which method works best depends on what kind of situation you're in.
@@ -108,24 +108,24 @@ mod tests;
 #[cfg_attr(feature = "serde1", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde1", serde(transparent))]
 #[repr(transparent)]
-pub struct Utf8PathBuf(PathBuf);
+pub struct AbsoluteSystemPathBuf(PathBuf);
 
-impl Utf8PathBuf {
-    /// Allocates an empty `Utf8PathBuf`.
+impl AbsoluteSystemPathBuf {
+    /// Allocates an empty `AbsoluteSystemPathBuf`.
     ///
     /// # Examples
     ///
     /// ```
-    /// use camino::Utf8PathBuf;
+    /// use pathological::AbsoluteSystemPathBuf;
     ///
-    /// let path = Utf8PathBuf::new();
+    /// let path = AbsoluteSystemPathBuf::new();
     /// ```
     #[must_use]
-    pub fn new() -> Utf8PathBuf {
-        Utf8PathBuf(PathBuf::new())
+    pub fn new() -> AbsoluteSystemPathBuf {
+        AbsoluteSystemPathBuf(PathBuf::new())
     }
 
-    /// Creates a new `Utf8PathBuf` from a `PathBuf` containing valid UTF-8 characters.
+    /// Creates a new `AbsoluteSystemPathBuf` from a `PathBuf` containing valid UTF-8 characters.
     ///
     /// Errors with the original `PathBuf` if it is not valid UTF-8.
     ///
@@ -135,14 +135,14 @@ impl Utf8PathBuf {
     /// # Examples
     ///
     /// ```
-    /// use camino::Utf8PathBuf;
+    /// use pathological::AbsoluteSystemPathBuf;
     /// use std::ffi::OsStr;
     /// # #[cfg(unix)]
     /// use std::os::unix::ffi::OsStrExt;
     /// use std::path::PathBuf;
     ///
     /// let unicode_path = PathBuf::from("/valid/unicode");
-    /// Utf8PathBuf::from_path_buf(unicode_path).expect("valid Unicode path succeeded");
+    /// AbsoluteSystemPathBuf::from_path_buf(unicode_path).expect("valid Unicode path succeeded");
     ///
     /// // Paths on Unix can be non-UTF-8.
     /// # #[cfg(unix)]
@@ -150,32 +150,32 @@ impl Utf8PathBuf {
     /// # #[cfg(unix)]
     /// let non_unicode_path = PathBuf::from(non_unicode_str);
     /// # #[cfg(unix)]
-    /// Utf8PathBuf::from_path_buf(non_unicode_path).expect_err("non-Unicode path failed");
+    /// AbsoluteSystemPathBuf::from_path_buf(non_unicode_path).expect_err("non-Unicode path failed");
     /// ```
-    pub fn from_path_buf(path: PathBuf) -> Result<Utf8PathBuf, PathBuf> {
+    pub fn from_path_buf(path: PathBuf) -> Result<AbsoluteSystemPathBuf, PathBuf> {
         match path.into_os_string().into_string() {
-            Ok(string) => Ok(Utf8PathBuf::from(string)),
+            Ok(string) => Ok(AbsoluteSystemPathBuf::from(string)),
             Err(os_string) => Err(PathBuf::from(os_string)),
         }
     }
 
-    /// Converts a `Utf8PathBuf` to a [`PathBuf`].
+    /// Converts a `AbsoluteSystemPathBuf` to a [`PathBuf`].
     ///
-    /// This is equivalent to the `From<Utf8PathBuf> for PathBuf` impl, but may aid in type
+    /// This is equivalent to the `From<AbsoluteSystemPathBuf> for PathBuf` impl, but may aid in type
     /// inference.
     ///
     /// # Examples
     ///
     /// ```
-    /// use camino::Utf8PathBuf;
+    /// use pathological::AbsoluteSystemPathBuf;
     /// use std::path::PathBuf;
     ///
-    /// let utf8_path_buf = Utf8PathBuf::from("foo.txt");
+    /// let utf8_path_buf = AbsoluteSystemPathBuf::from("foo.txt");
     /// let std_path_buf = utf8_path_buf.into_std_path_buf();
     /// assert_eq!(std_path_buf.to_str(), Some("foo.txt"));
     ///
-    /// // Convert back to a Utf8PathBuf.
-    /// let new_utf8_path_buf = Utf8PathBuf::from_path_buf(std_path_buf).unwrap();
+    /// // Convert back to a AbsoluteSystemPathBuf.
+    /// let new_utf8_path_buf = AbsoluteSystemPathBuf::from_path_buf(std_path_buf).unwrap();
     /// assert_eq!(new_utf8_path_buf, "foo.txt");
     /// ```
     #[must_use = "`self` will be dropped if the result is not used"]
@@ -183,7 +183,7 @@ impl Utf8PathBuf {
         self.into()
     }
 
-    /// Creates a new `Utf8PathBuf` with a given capacity used to create the internal [`PathBuf`].
+    /// Creates a new `AbsoluteSystemPathBuf` with a given capacity used to create the internal [`PathBuf`].
     /// See [`with_capacity`] defined on [`PathBuf`].
     ///
     /// *Requires Rust 1.44 or newer.*
@@ -191,9 +191,9 @@ impl Utf8PathBuf {
     /// # Examples
     ///
     /// ```
-    /// use camino::Utf8PathBuf;
+    /// use pathological::AbsoluteSystemPathBuf;
     ///
-    /// let mut path = Utf8PathBuf::with_capacity(10);
+    /// let mut path = AbsoluteSystemPathBuf::with_capacity(10);
     /// let capacity = path.capacity();
     ///
     /// // This push is done without reallocating
@@ -205,24 +205,24 @@ impl Utf8PathBuf {
     /// [`with_capacity`]: PathBuf::with_capacity
     #[cfg(path_buf_capacity)]
     #[must_use]
-    pub fn with_capacity(capacity: usize) -> Utf8PathBuf {
-        Utf8PathBuf(PathBuf::with_capacity(capacity))
+    pub fn with_capacity(capacity: usize) -> AbsoluteSystemPathBuf {
+        AbsoluteSystemPathBuf(PathBuf::with_capacity(capacity))
     }
 
-    /// Coerces to a [`Utf8Path`] slice.
+    /// Coerces to a [`AbsoluteSystemPath`] slice.
     ///
     /// # Examples
     ///
     /// ```
-    /// use camino::{Utf8Path, Utf8PathBuf};
+    /// use pathological::{AbsoluteSystemPath, AbsoluteSystemPathBuf};
     ///
-    /// let p = Utf8PathBuf::from("/test");
-    /// assert_eq!(Utf8Path::new("/test"), p.as_path());
+    /// let p = AbsoluteSystemPathBuf::from("/test");
+    /// assert_eq!(AbsoluteSystemPath::new("/test"), p.as_path());
     /// ```
     #[must_use]
-    pub fn as_path(&self) -> &Utf8Path {
-        // SAFETY: every Utf8PathBuf constructor ensures that self is valid UTF-8
-        unsafe { Utf8Path::assume_utf8(&self.0) }
+    pub fn as_path(&self) -> &AbsoluteSystemPath {
+        // SAFETY: every AbsoluteSystemPathBuf constructor ensures that self is valid UTF-8
+        unsafe { AbsoluteSystemPath::coerce_absolute_system_path(&self.0) }
     }
 
     /// Extends `self` with `path`.
@@ -240,23 +240,23 @@ impl Utf8PathBuf {
     /// Pushing a relative path extends the existing path:
     ///
     /// ```
-    /// use camino::Utf8PathBuf;
+    /// use pathological::AbsoluteSystemPathBuf;
     ///
-    /// let mut path = Utf8PathBuf::from("/tmp");
+    /// let mut path = AbsoluteSystemPathBuf::from("/tmp");
     /// path.push("file.bk");
-    /// assert_eq!(path, Utf8PathBuf::from("/tmp/file.bk"));
+    /// assert_eq!(path, AbsoluteSystemPathBuf::from("/tmp/file.bk"));
     /// ```
     ///
     /// Pushing an absolute path replaces the existing path:
     ///
     /// ```
-    /// use camino::Utf8PathBuf;
+    /// use pathological::AbsoluteSystemPathBuf;
     ///
-    /// let mut path = Utf8PathBuf::from("/tmp");
+    /// let mut path = AbsoluteSystemPathBuf::from("/tmp");
     /// path.push("/etc");
-    /// assert_eq!(path, Utf8PathBuf::from("/etc"));
+    /// assert_eq!(path, AbsoluteSystemPathBuf::from("/etc"));
     /// ```
-    pub fn push(&mut self, path: impl AsRef<Utf8Path>) {
+    pub fn push(&mut self, path: impl AsRef<AbsoluteSystemPath>) {
         self.0.push(&path.as_ref().0)
     }
 
@@ -265,19 +265,19 @@ impl Utf8PathBuf {
     /// Returns `false` and does nothing if [`self.parent`] is [`None`].
     /// Otherwise, returns `true`.
     ///
-    /// [`self.parent`]: Utf8Path::parent
+    /// [`self.parent`]: AbsoluteSystemPath::parent
     ///
     /// # Examples
     ///
     /// ```
-    /// use camino::{Utf8Path, Utf8PathBuf};
+    /// use pathological::{AbsoluteSystemPath, AbsoluteSystemPathBuf};
     ///
-    /// let mut p = Utf8PathBuf::from("/spirited/away.rs");
+    /// let mut p = AbsoluteSystemPathBuf::from("/spirited/away.rs");
     ///
     /// p.pop();
-    /// assert_eq!(Utf8Path::new("/spirited"), p);
+    /// assert_eq!(AbsoluteSystemPath::new("/spirited"), p);
     /// p.pop();
-    /// assert_eq!(Utf8Path::new("/"), p);
+    /// assert_eq!(AbsoluteSystemPath::new("/"), p);
     /// ```
     pub fn pop(&mut self) -> bool {
         self.0.pop()
@@ -292,21 +292,21 @@ impl Utf8PathBuf {
     /// `file_name`. The new path will be a sibling of the original path.
     /// (That is, it will have the same parent.)
     ///
-    /// [`self.file_name`]: Utf8Path::file_name
-    /// [`pop`]: Utf8PathBuf::pop
+    /// [`self.file_name`]: AbsoluteSystemPath::file_name
+    /// [`pop`]: AbsoluteSystemPathBuf::pop
     ///
     /// # Examples
     ///
     /// ```
-    /// use camino::Utf8PathBuf;
+    /// use pathological::AbsoluteSystemPathBuf;
     ///
-    /// let mut buf = Utf8PathBuf::from("/");
+    /// let mut buf = AbsoluteSystemPathBuf::from("/");
     /// assert_eq!(buf.file_name(), None);
     /// buf.set_file_name("bar");
-    /// assert_eq!(buf, Utf8PathBuf::from("/bar"));
+    /// assert_eq!(buf, AbsoluteSystemPathBuf::from("/bar"));
     /// assert!(buf.file_name().is_some());
     /// buf.set_file_name("baz.txt");
-    /// assert_eq!(buf, Utf8PathBuf::from("/baz.txt"));
+    /// assert_eq!(buf, AbsoluteSystemPathBuf::from("/baz.txt"));
     /// ```
     pub fn set_file_name(&mut self, file_name: impl AsRef<str>) {
         self.0.set_file_name(file_name.as_ref())
@@ -320,34 +320,34 @@ impl Utf8PathBuf {
     /// If [`self.extension`] is [`None`], the extension is added; otherwise
     /// it is replaced.
     ///
-    /// [`self.file_name`]: Utf8Path::file_name
-    /// [`self.extension`]: Utf8Path::extension
+    /// [`self.file_name`]: AbsoluteSystemPath::file_name
+    /// [`self.extension`]: AbsoluteSystemPath::extension
     ///
     /// # Examples
     ///
     /// ```
-    /// use camino::{Utf8Path, Utf8PathBuf};
+    /// use pathological::{AbsoluteSystemPath, AbsoluteSystemPathBuf};
     ///
-    /// let mut p = Utf8PathBuf::from("/feel/the");
+    /// let mut p = AbsoluteSystemPathBuf::from("/feel/the");
     ///
     /// p.set_extension("force");
-    /// assert_eq!(Utf8Path::new("/feel/the.force"), p.as_path());
+    /// assert_eq!(AbsoluteSystemPath::new("/feel/the.force"), p.as_path());
     ///
     /// p.set_extension("dark_side");
-    /// assert_eq!(Utf8Path::new("/feel/the.dark_side"), p.as_path());
+    /// assert_eq!(AbsoluteSystemPath::new("/feel/the.dark_side"), p.as_path());
     /// ```
     pub fn set_extension(&mut self, extension: impl AsRef<str>) -> bool {
         self.0.set_extension(extension.as_ref())
     }
 
-    /// Consumes the `Utf8PathBuf`, yielding its internal [`String`] storage.
+    /// Consumes the `AbsoluteSystemPathBuf`, yielding its internal [`String`] storage.
     ///
     /// # Examples
     ///
     /// ```
-    /// use camino::Utf8PathBuf;
+    /// use pathological::AbsoluteSystemPathBuf;
     ///
-    /// let p = Utf8PathBuf::from("/the/head");
+    /// let p = AbsoluteSystemPathBuf::from("/the/head");
     /// let s = p.into_string();
     /// assert_eq!(s, "/the/head");
     /// ```
@@ -356,15 +356,15 @@ impl Utf8PathBuf {
         self.into_os_string().into_string().unwrap()
     }
 
-    /// Consumes the `Utf8PathBuf`, yielding its internal [`OsString`] storage.
+    /// Consumes the `AbsoluteSystemPathBuf`, yielding its internal [`OsString`] storage.
     ///
     /// # Examples
     ///
     /// ```
-    /// use camino::Utf8PathBuf;
+    /// use pathological::AbsoluteSystemPathBuf;
     /// use std::ffi::OsStr;
     ///
-    /// let p = Utf8PathBuf::from("/the/head");
+    /// let p = AbsoluteSystemPathBuf::from("/the/head");
     /// let s = p.into_os_string();
     /// assert_eq!(s, OsStr::new("/the/head"));
     /// ```
@@ -373,15 +373,15 @@ impl Utf8PathBuf {
         self.0.into_os_string()
     }
 
-    /// Converts this `Utf8PathBuf` into a [boxed](Box) [`Utf8Path`].
+    /// Converts this `AbsoluteSystemPathBuf` into a [boxed](Box) [`AbsoluteSystemPath`].
     #[must_use = "`self` will be dropped if the result is not used"]
-    pub fn into_boxed_path(self) -> Box<Utf8Path> {
-        let ptr = Box::into_raw(self.0.into_boxed_path()) as *mut Utf8Path;
+    pub fn into_boxed_path(self) -> Box<AbsoluteSystemPath> {
+        let ptr = Box::into_raw(self.0.into_boxed_path()) as *mut AbsoluteSystemPath;
         // SAFETY:
         // * self is valid UTF-8
         // * ptr was constructed by consuming self so it represents an owned path
-        // * Utf8Path is marked as #[repr(transparent)] so the conversion from *mut Path to
-        //   *mut Utf8Path is valid
+        // * AbsoluteSystemPath is marked as #[repr(transparent)] so the conversion from *mut Path to
+        //   *mut AbsoluteSystemPath is valid
         unsafe { Box::from_raw(ptr) }
     }
 
@@ -476,35 +476,35 @@ impl Utf8PathBuf {
     }
 }
 
-impl Deref for Utf8PathBuf {
-    type Target = Utf8Path;
+impl Deref for AbsoluteSystemPathBuf {
+    type Target = AbsoluteSystemPath;
 
-    fn deref(&self) -> &Utf8Path {
+    fn deref(&self) -> &AbsoluteSystemPath {
         self.as_path()
     }
 }
 
 /// *Requires Rust 1.68 or newer.*
 #[cfg(path_buf_deref_mut)]
-impl std::ops::DerefMut for Utf8PathBuf {
+impl std::ops::DerefMut for AbsoluteSystemPathBuf {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        unsafe { Utf8Path::assume_utf8_mut(&mut self.0) }
+        unsafe { AbsoluteSystemPath::coerce_absolute_system_path_mut(&mut self.0) }
     }
 }
 
-impl fmt::Debug for Utf8PathBuf {
+impl fmt::Debug for AbsoluteSystemPathBuf {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         fmt::Debug::fmt(&**self, f)
     }
 }
 
-impl fmt::Display for Utf8PathBuf {
+impl fmt::Display for AbsoluteSystemPathBuf {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         fmt::Display::fmt(self.as_str(), f)
     }
 }
 
-impl<P: AsRef<Utf8Path>> Extend<P> for Utf8PathBuf {
+impl<P: AsRef<AbsoluteSystemPath>> Extend<P> for AbsoluteSystemPathBuf {
     fn extend<I: IntoIterator<Item = P>>(&mut self, iter: I) {
         for path in iter {
             self.push(path);
@@ -521,18 +521,18 @@ impl<P: AsRef<Utf8Path>> Extend<P> for Utf8PathBuf {
 ///
 /// This is an *unsized* type, meaning that it must always be used behind a
 /// pointer like `&` or [`Box`]. For an owned version of this type,
-/// see [`Utf8PathBuf`].
+/// see [`AbsoluteSystemPathBuf`].
 ///
 /// # Examples
 ///
 /// ```
-/// use camino::Utf8Path;
+/// use pathological::AbsoluteSystemPath;
 ///
 /// // Note: this example does work on Windows
-/// let path = Utf8Path::new("./foo/bar.txt");
+/// let path = AbsoluteSystemPath::new("./foo/bar.txt");
 ///
 /// let parent = path.parent();
-/// assert_eq!(parent, Some(Utf8Path::new("./foo")));
+/// assert_eq!(parent, Some(AbsoluteSystemPath::new("./foo")));
 ///
 /// let file_stem = path.file_stem();
 /// assert_eq!(file_stem, Some("bar"));
@@ -542,38 +542,38 @@ impl<P: AsRef<Utf8Path>> Extend<P> for Utf8PathBuf {
 /// ```
 // NB: Internal Path must only contain utf8 data
 #[repr(transparent)]
-pub struct Utf8Path(Path);
+pub struct AbsoluteSystemPath(Path);
 
-impl Utf8Path {
-    /// Directly wraps a string slice as a `Utf8Path` slice.
+impl AbsoluteSystemPath {
+    /// Directly wraps a string slice as a `AbsoluteSystemPath` slice.
     ///
     /// This is a cost-free conversion.
     ///
     /// # Examples
     ///
     /// ```
-    /// use camino::Utf8Path;
+    /// use pathological::AbsoluteSystemPath;
     ///
-    /// Utf8Path::new("foo.txt");
+    /// AbsoluteSystemPath::new("foo.txt");
     /// ```
     ///
-    /// You can create `Utf8Path`s from `String`s, or even other `Utf8Path`s:
+    /// You can create `AbsoluteSystemPath`s from `String`s, or even other `AbsoluteSystemPath`s:
     ///
     /// ```
-    /// use camino::Utf8Path;
+    /// use pathological::AbsoluteSystemPath;
     ///
     /// let string = String::from("foo.txt");
-    /// let from_string = Utf8Path::new(&string);
-    /// let from_path = Utf8Path::new(&from_string);
+    /// let from_string = AbsoluteSystemPath::new(&string);
+    /// let from_path = AbsoluteSystemPath::new(&from_string);
     /// assert_eq!(from_string, from_path);
     /// ```
-    pub fn new(s: &(impl AsRef<str> + ?Sized)) -> &Utf8Path {
+    pub fn new(s: &(impl AsRef<str> + ?Sized)) -> &AbsoluteSystemPath {
         let path = Path::new(s.as_ref());
         // SAFETY: s is a str which means it is always valid UTF-8
-        unsafe { Utf8Path::assume_utf8(path) }
+        unsafe { AbsoluteSystemPath::coerce_absolute_system_path(path) }
     }
 
-    /// Converts a [`Path`] to a `Utf8Path`.
+    /// Converts a [`Path`] to a `AbsoluteSystemPath`.
     ///
     /// Returns `None` if the path is not valid UTF-8.
     ///
@@ -583,14 +583,14 @@ impl Utf8Path {
     /// # Examples
     ///
     /// ```
-    /// use camino::Utf8Path;
+    /// use pathological::AbsoluteSystemPath;
     /// use std::ffi::OsStr;
     /// # #[cfg(unix)]
     /// use std::os::unix::ffi::OsStrExt;
     /// use std::path::Path;
     ///
     /// let unicode_path = Path::new("/valid/unicode");
-    /// Utf8Path::from_path(unicode_path).expect("valid Unicode path succeeded");
+    /// AbsoluteSystemPath::from_path(unicode_path).expect("valid Unicode path succeeded");
     ///
     /// // Paths on Unix can be non-UTF-8.
     /// # #[cfg(unix)]
@@ -598,28 +598,28 @@ impl Utf8Path {
     /// # #[cfg(unix)]
     /// let non_unicode_path = Path::new(non_unicode_str);
     /// # #[cfg(unix)]
-    /// assert!(Utf8Path::from_path(non_unicode_path).is_none(), "non-Unicode path failed");
+    /// assert!(AbsoluteSystemPath::from_path(non_unicode_path).is_none(), "non-Unicode path failed");
     /// ```
-    pub fn from_path(path: &Path) -> Option<&Utf8Path> {
-        path.as_os_str().to_str().map(Utf8Path::new)
+    pub fn from_path(path: &Path) -> Option<&AbsoluteSystemPath> {
+        path.as_os_str().to_str().map(AbsoluteSystemPath::new)
     }
 
-    /// Converts a `Utf8Path` to a [`Path`].
+    /// Converts a `AbsoluteSystemPath` to a [`Path`].
     ///
-    /// This is equivalent to the `AsRef<&Path> for &Utf8Path` impl, but may aid in type inference.
+    /// This is equivalent to the `AsRef<&Path> for &AbsoluteSystemPath` impl, but may aid in type inference.
     ///
     /// # Examples
     ///
     /// ```
-    /// use camino::Utf8Path;
+    /// use pathological::AbsoluteSystemPath;
     /// use std::path::Path;
     ///
-    /// let utf8_path = Utf8Path::new("foo.txt");
+    /// let utf8_path = AbsoluteSystemPath::new("foo.txt");
     /// let std_path: &Path = utf8_path.as_std_path();
     /// assert_eq!(std_path.to_str(), Some("foo.txt"));
     ///
-    /// // Convert back to a Utf8Path.
-    /// let new_utf8_path = Utf8Path::from_path(std_path).unwrap();
+    /// // Convert back to a AbsoluteSystemPath.
+    /// let new_utf8_path = AbsoluteSystemPath::from_path(std_path).unwrap();
     /// assert_eq!(new_utf8_path, "foo.txt");
     /// ```
     pub fn as_std_path(&self) -> &Path {
@@ -628,22 +628,22 @@ impl Utf8Path {
 
     /// Yields the underlying [`str`] slice.
     ///
-    /// Unlike [`Path::to_str`], this always returns a slice because the contents of a `Utf8Path`
+    /// Unlike [`Path::to_str`], this always returns a slice because the contents of a `AbsoluteSystemPath`
     /// are guaranteed to be valid UTF-8.
     ///
     /// # Examples
     ///
     /// ```
-    /// use camino::Utf8Path;
+    /// use pathological::AbsoluteSystemPath;
     ///
-    /// let s = Utf8Path::new("foo.txt").as_str();
+    /// let s = AbsoluteSystemPath::new("foo.txt").as_str();
     /// assert_eq!(s, "foo.txt");
     /// ```
     ///
     /// [`str`]: str
     #[must_use]
     pub fn as_str(&self) -> &str {
-        // SAFETY: every Utf8Path constructor ensures that self is valid UTF-8
+        // SAFETY: every AbsoluteSystemPath constructor ensures that self is valid UTF-8
         unsafe { assume_utf8(self.as_os_str()) }
     }
 
@@ -652,9 +652,9 @@ impl Utf8Path {
     /// # Examples
     ///
     /// ```
-    /// use camino::Utf8Path;
+    /// use pathological::AbsoluteSystemPath;
     ///
-    /// let os_str = Utf8Path::new("foo.txt").as_os_str();
+    /// let os_str = AbsoluteSystemPath::new("foo.txt").as_os_str();
     /// assert_eq!(os_str, std::ffi::OsStr::new("foo.txt"));
     /// ```
     #[must_use]
@@ -662,23 +662,23 @@ impl Utf8Path {
         self.0.as_os_str()
     }
 
-    /// Converts a `Utf8Path` to an owned [`Utf8PathBuf`].
+    /// Converts a `AbsoluteSystemPath` to an owned [`AbsoluteSystemPathBuf`].
     ///
     /// # Examples
     ///
     /// ```
-    /// use camino::{Utf8Path, Utf8PathBuf};
+    /// use pathological::{AbsoluteSystemPath, AbsoluteSystemPathBuf};
     ///
-    /// let path_buf = Utf8Path::new("foo.txt").to_path_buf();
-    /// assert_eq!(path_buf, Utf8PathBuf::from("foo.txt"));
+    /// let path_buf = AbsoluteSystemPath::new("foo.txt").to_path_buf();
+    /// assert_eq!(path_buf, AbsoluteSystemPathBuf::from("foo.txt"));
     /// ```
     #[must_use = "this returns the result of the operation, \
                   without modifying the original"]
-    pub fn to_path_buf(&self) -> Utf8PathBuf {
-        Utf8PathBuf(self.0.to_path_buf())
+    pub fn to_path_buf(&self) -> AbsoluteSystemPathBuf {
+        AbsoluteSystemPathBuf(self.0.to_path_buf())
     }
 
-    /// Returns `true` if the `Utf8Path` is absolute, i.e., if it is independent of
+    /// Returns `true` if the `AbsoluteSystemPath` is absolute, i.e., if it is independent of
     /// the current directory.
     ///
     /// * On Unix, a path is absolute if it starts with the root, so
@@ -690,36 +690,36 @@ impl Utf8Path {
     /// # Examples
     ///
     /// ```
-    /// use camino::Utf8Path;
+    /// use pathological::AbsoluteSystemPath;
     ///
-    /// assert!(!Utf8Path::new("foo.txt").is_absolute());
+    /// assert!(!AbsoluteSystemPath::new("foo.txt").is_absolute());
     /// ```
     ///
-    /// [`has_root`]: Utf8Path::has_root
+    /// [`has_root`]: AbsoluteSystemPath::has_root
     #[must_use]
     pub fn is_absolute(&self) -> bool {
         self.0.is_absolute()
     }
 
-    /// Returns `true` if the `Utf8Path` is relative, i.e., not absolute.
+    /// Returns `true` if the `AbsoluteSystemPath` is relative, i.e., not absolute.
     ///
     /// See [`is_absolute`]'s documentation for more details.
     ///
     /// # Examples
     ///
     /// ```
-    /// use camino::Utf8Path;
+    /// use pathological::AbsoluteSystemPath;
     ///
-    /// assert!(Utf8Path::new("foo.txt").is_relative());
+    /// assert!(AbsoluteSystemPath::new("foo.txt").is_relative());
     /// ```
     ///
-    /// [`is_absolute`]: Utf8Path::is_absolute
+    /// [`is_absolute`]: AbsoluteSystemPath::is_absolute
     #[must_use]
     pub fn is_relative(&self) -> bool {
         self.0.is_relative()
     }
 
-    /// Returns `true` if the `Utf8Path` has a root.
+    /// Returns `true` if the `AbsoluteSystemPath` has a root.
     ///
     /// * On Unix, a path has a root if it begins with `/`.
     ///
@@ -731,9 +731,9 @@ impl Utf8Path {
     /// # Examples
     ///
     /// ```
-    /// use camino::Utf8Path;
+    /// use pathological::AbsoluteSystemPath;
     ///
-    /// assert!(Utf8Path::new("/etc/passwd").has_root());
+    /// assert!(AbsoluteSystemPath::new("/etc/passwd").has_root());
     /// ```
     #[must_use]
     pub fn has_root(&self) -> bool {
@@ -747,27 +747,27 @@ impl Utf8Path {
     /// # Examples
     ///
     /// ```
-    /// use camino::Utf8Path;
+    /// use pathological::AbsoluteSystemPath;
     ///
-    /// let path = Utf8Path::new("/foo/bar");
+    /// let path = AbsoluteSystemPath::new("/foo/bar");
     /// let parent = path.parent().unwrap();
-    /// assert_eq!(parent, Utf8Path::new("/foo"));
+    /// assert_eq!(parent, AbsoluteSystemPath::new("/foo"));
     ///
     /// let grand_parent = parent.parent().unwrap();
-    /// assert_eq!(grand_parent, Utf8Path::new("/"));
+    /// assert_eq!(grand_parent, AbsoluteSystemPath::new("/"));
     /// assert_eq!(grand_parent.parent(), None);
     /// ```
     #[must_use]
-    pub fn parent(&self) -> Option<&Utf8Path> {
+    pub fn parent(&self) -> Option<&AbsoluteSystemPath> {
         self.0.parent().map(|path| {
             // SAFETY: self is valid UTF-8, so parent is valid UTF-8 as well
-            unsafe { Utf8Path::assume_utf8(path) }
+            unsafe { AbsoluteSystemPath::coerce_absolute_system_path(path) }
         })
     }
 
-    /// Produces an iterator over `Utf8Path` and its ancestors.
+    /// Produces an iterator over `AbsoluteSystemPath` and its ancestors.
     ///
-    /// The iterator will yield the `Utf8Path` that is returned if the [`parent`] method is used zero
+    /// The iterator will yield the `AbsoluteSystemPath` that is returned if the [`parent`] method is used zero
     /// or more times. That means, the iterator will yield `&self`, `&self.parent().unwrap()`,
     /// `&self.parent().unwrap().parent().unwrap()` and so on. If the [`parent`] method returns
     /// [`None`], the iterator will do likewise. The iterator will always yield at least one value,
@@ -776,28 +776,28 @@ impl Utf8Path {
     /// # Examples
     ///
     /// ```
-    /// use camino::Utf8Path;
+    /// use pathological::AbsoluteSystemPath;
     ///
-    /// let mut ancestors = Utf8Path::new("/foo/bar").ancestors();
-    /// assert_eq!(ancestors.next(), Some(Utf8Path::new("/foo/bar")));
-    /// assert_eq!(ancestors.next(), Some(Utf8Path::new("/foo")));
-    /// assert_eq!(ancestors.next(), Some(Utf8Path::new("/")));
+    /// let mut ancestors = AbsoluteSystemPath::new("/foo/bar").ancestors();
+    /// assert_eq!(ancestors.next(), Some(AbsoluteSystemPath::new("/foo/bar")));
+    /// assert_eq!(ancestors.next(), Some(AbsoluteSystemPath::new("/foo")));
+    /// assert_eq!(ancestors.next(), Some(AbsoluteSystemPath::new("/")));
     /// assert_eq!(ancestors.next(), None);
     ///
-    /// let mut ancestors = Utf8Path::new("../foo/bar").ancestors();
-    /// assert_eq!(ancestors.next(), Some(Utf8Path::new("../foo/bar")));
-    /// assert_eq!(ancestors.next(), Some(Utf8Path::new("../foo")));
-    /// assert_eq!(ancestors.next(), Some(Utf8Path::new("..")));
-    /// assert_eq!(ancestors.next(), Some(Utf8Path::new("")));
+    /// let mut ancestors = AbsoluteSystemPath::new("../foo/bar").ancestors();
+    /// assert_eq!(ancestors.next(), Some(AbsoluteSystemPath::new("../foo/bar")));
+    /// assert_eq!(ancestors.next(), Some(AbsoluteSystemPath::new("../foo")));
+    /// assert_eq!(ancestors.next(), Some(AbsoluteSystemPath::new("..")));
+    /// assert_eq!(ancestors.next(), Some(AbsoluteSystemPath::new("")));
     /// assert_eq!(ancestors.next(), None);
     /// ```
     ///
-    /// [`parent`]: Utf8Path::parent
-    pub fn ancestors(&self) -> Utf8Ancestors<'_> {
-        Utf8Ancestors(self.0.ancestors())
+    /// [`parent`]: AbsoluteSystemPath::parent
+    pub fn ancestors(&self) -> AbsoluteSystemPathAncestors<'_> {
+        AbsoluteSystemPathAncestors(self.0.ancestors())
     }
 
-    /// Returns the final component of the `Utf8Path`, if there is one.
+    /// Returns the final component of the `AbsoluteSystemPath`, if there is one.
     ///
     /// If the path is a normal file, this is the file name. If it's the path of a directory, this
     /// is the directory name.
@@ -807,14 +807,14 @@ impl Utf8Path {
     /// # Examples
     ///
     /// ```
-    /// use camino::Utf8Path;
+    /// use pathological::AbsoluteSystemPath;
     ///
-    /// assert_eq!(Some("bin"), Utf8Path::new("/usr/bin/").file_name());
-    /// assert_eq!(Some("foo.txt"), Utf8Path::new("tmp/foo.txt").file_name());
-    /// assert_eq!(Some("foo.txt"), Utf8Path::new("foo.txt/.").file_name());
-    /// assert_eq!(Some("foo.txt"), Utf8Path::new("foo.txt/.//").file_name());
-    /// assert_eq!(None, Utf8Path::new("foo.txt/..").file_name());
-    /// assert_eq!(None, Utf8Path::new("/").file_name());
+    /// assert_eq!(Some("bin"), AbsoluteSystemPath::new("/usr/bin/").file_name());
+    /// assert_eq!(Some("foo.txt"), AbsoluteSystemPath::new("tmp/foo.txt").file_name());
+    /// assert_eq!(Some("foo.txt"), AbsoluteSystemPath::new("foo.txt/.").file_name());
+    /// assert_eq!(Some("foo.txt"), AbsoluteSystemPath::new("foo.txt/.//").file_name());
+    /// assert_eq!(None, AbsoluteSystemPath::new("foo.txt/..").file_name());
+    /// assert_eq!(None, AbsoluteSystemPath::new("/").file_name());
     /// ```
     #[must_use]
     pub fn file_name(&self) -> Option<&str> {
@@ -831,32 +831,32 @@ impl Utf8Path {
     /// If `base` is not a prefix of `self` (i.e., [`starts_with`]
     /// returns `false`), returns [`Err`].
     ///
-    /// [`starts_with`]: Utf8Path::starts_with
+    /// [`starts_with`]: AbsoluteSystemPath::starts_with
     ///
     /// # Examples
     ///
     /// ```
-    /// use camino::{Utf8Path, Utf8PathBuf};
+    /// use pathological::{AbsoluteSystemPath, AbsoluteSystemPathBuf};
     ///
-    /// let path = Utf8Path::new("/test/haha/foo.txt");
+    /// let path = AbsoluteSystemPath::new("/test/haha/foo.txt");
     ///
-    /// assert_eq!(path.strip_prefix("/"), Ok(Utf8Path::new("test/haha/foo.txt")));
-    /// assert_eq!(path.strip_prefix("/test"), Ok(Utf8Path::new("haha/foo.txt")));
-    /// assert_eq!(path.strip_prefix("/test/"), Ok(Utf8Path::new("haha/foo.txt")));
-    /// assert_eq!(path.strip_prefix("/test/haha/foo.txt"), Ok(Utf8Path::new("")));
-    /// assert_eq!(path.strip_prefix("/test/haha/foo.txt/"), Ok(Utf8Path::new("")));
+    /// assert_eq!(path.strip_prefix("/"), Ok(AbsoluteSystemPath::new("test/haha/foo.txt")));
+    /// assert_eq!(path.strip_prefix("/test"), Ok(AbsoluteSystemPath::new("haha/foo.txt")));
+    /// assert_eq!(path.strip_prefix("/test/"), Ok(AbsoluteSystemPath::new("haha/foo.txt")));
+    /// assert_eq!(path.strip_prefix("/test/haha/foo.txt"), Ok(AbsoluteSystemPath::new("")));
+    /// assert_eq!(path.strip_prefix("/test/haha/foo.txt/"), Ok(AbsoluteSystemPath::new("")));
     ///
     /// assert!(path.strip_prefix("test").is_err());
     /// assert!(path.strip_prefix("/haha").is_err());
     ///
-    /// let prefix = Utf8PathBuf::from("/test/");
-    /// assert_eq!(path.strip_prefix(prefix), Ok(Utf8Path::new("haha/foo.txt")));
+    /// let prefix = AbsoluteSystemPathBuf::from("/test/");
+    /// assert_eq!(path.strip_prefix(prefix), Ok(AbsoluteSystemPath::new("haha/foo.txt")));
     /// ```
-    pub fn strip_prefix(&self, base: impl AsRef<Path>) -> Result<&Utf8Path, StripPrefixError> {
+    pub fn strip_prefix(&self, base: impl AsRef<Path>) -> Result<&AbsoluteSystemPath, StripPrefixError> {
         self.0.strip_prefix(base).map(|path| {
             // SAFETY: self is valid UTF-8, and strip_prefix returns a part of self (or an empty
             // string), so it is valid UTF-8 as well.
-            unsafe { Utf8Path::assume_utf8(path) }
+            unsafe { AbsoluteSystemPath::coerce_absolute_system_path(path) }
         })
     }
 
@@ -867,9 +867,9 @@ impl Utf8Path {
     /// # Examples
     ///
     /// ```
-    /// use camino::Utf8Path;
+    /// use pathological::AbsoluteSystemPath;
     ///
-    /// let path = Utf8Path::new("/etc/passwd");
+    /// let path = AbsoluteSystemPath::new("/etc/passwd");
     ///
     /// assert!(path.starts_with("/etc"));
     /// assert!(path.starts_with("/etc/"));
@@ -880,7 +880,7 @@ impl Utf8Path {
     /// assert!(!path.starts_with("/e"));
     /// assert!(!path.starts_with("/etc/passwd.txt"));
     ///
-    /// assert!(!Utf8Path::new("/etc/foo.rs").starts_with("/etc/foo"));
+    /// assert!(!AbsoluteSystemPath::new("/etc/foo.rs").starts_with("/etc/foo"));
     /// ```
     #[must_use]
     pub fn starts_with(&self, base: impl AsRef<Path>) -> bool {
@@ -894,9 +894,9 @@ impl Utf8Path {
     /// # Examples
     ///
     /// ```
-    /// use camino::Utf8Path;
+    /// use pathological::AbsoluteSystemPath;
     ///
-    /// let path = Utf8Path::new("/etc/resolv.conf");
+    /// let path = AbsoluteSystemPath::new("/etc/resolv.conf");
     ///
     /// assert!(path.ends_with("resolv.conf"));
     /// assert!(path.ends_with("etc/resolv.conf"));
@@ -912,7 +912,7 @@ impl Utf8Path {
 
     /// Extracts the stem (non-extension) portion of [`self.file_name`].
     ///
-    /// [`self.file_name`]: Utf8Path::file_name
+    /// [`self.file_name`]: AbsoluteSystemPath::file_name
     ///
     /// The stem is:
     ///
@@ -924,10 +924,10 @@ impl Utf8Path {
     /// # Examples
     ///
     /// ```
-    /// use camino::Utf8Path;
+    /// use pathological::AbsoluteSystemPath;
     ///
-    /// assert_eq!("foo", Utf8Path::new("foo.rs").file_stem().unwrap());
-    /// assert_eq!("foo.tar", Utf8Path::new("foo.tar.gz").file_stem().unwrap());
+    /// assert_eq!("foo", AbsoluteSystemPath::new("foo.rs").file_stem().unwrap());
+    /// assert_eq!("foo.tar", AbsoluteSystemPath::new("foo.tar.gz").file_stem().unwrap());
     /// ```
     #[must_use]
     pub fn file_stem(&self) -> Option<&str> {
@@ -946,15 +946,15 @@ impl Utf8Path {
     /// * [`None`], if the file name begins with `.` and has no other `.`s within;
     /// * Otherwise, the portion of the file name after the final `.`
     ///
-    /// [`self.file_name`]: Utf8Path::file_name
+    /// [`self.file_name`]: AbsoluteSystemPath::file_name
     ///
     /// # Examples
     ///
     /// ```
-    /// use camino::Utf8Path;
+    /// use pathological::AbsoluteSystemPath;
     ///
-    /// assert_eq!("rs", Utf8Path::new("foo.rs").extension().unwrap());
-    /// assert_eq!("gz", Utf8Path::new("foo.tar.gz").extension().unwrap());
+    /// assert_eq!("rs", AbsoluteSystemPath::new("foo.rs").extension().unwrap());
+    /// assert_eq!("gz", AbsoluteSystemPath::new("foo.tar.gz").extension().unwrap());
     /// ```
     #[must_use]
     pub fn extension(&self) -> Option<&str> {
@@ -964,20 +964,20 @@ impl Utf8Path {
         })
     }
 
-    /// Creates an owned [`Utf8PathBuf`] with `path` adjoined to `self`.
+    /// Creates an owned [`AbsoluteSystemPathBuf`] with `path` adjoined to `self`.
     ///
-    /// See [`Utf8PathBuf::push`] for more details on what it means to adjoin a path.
+    /// See [`AbsoluteSystemPathBuf::push`] for more details on what it means to adjoin a path.
     ///
     /// # Examples
     ///
     /// ```
-    /// use camino::{Utf8Path, Utf8PathBuf};
+    /// use pathological::{AbsoluteSystemPath, AbsoluteSystemPathBuf};
     ///
-    /// assert_eq!(Utf8Path::new("/etc").join("passwd"), Utf8PathBuf::from("/etc/passwd"));
+    /// assert_eq!(AbsoluteSystemPath::new("/etc").join("passwd"), AbsoluteSystemPathBuf::from("/etc/passwd"));
     /// ```
     #[must_use]
-    pub fn join(&self, path: impl AsRef<Utf8Path>) -> Utf8PathBuf {
-        Utf8PathBuf(self.0.join(&path.as_ref().0))
+    pub fn join(&self, path: impl AsRef<AbsoluteSystemPath>) -> AbsoluteSystemPathBuf {
+        AbsoluteSystemPathBuf(self.0.join(&path.as_ref().0))
     }
 
     /// Creates an owned [`PathBuf`] with `path` adjoined to `self`.
@@ -987,58 +987,58 @@ impl Utf8Path {
     /// # Examples
     ///
     /// ```
-    /// use camino::Utf8Path;
+    /// use pathological::AbsoluteSystemPath;
     /// use std::path::PathBuf;
     ///
-    /// assert_eq!(Utf8Path::new("/etc").join_os("passwd"), PathBuf::from("/etc/passwd"));
+    /// assert_eq!(AbsoluteSystemPath::new("/etc").join_os("passwd"), PathBuf::from("/etc/passwd"));
     /// ```
     #[must_use]
     pub fn join_os(&self, path: impl AsRef<Path>) -> PathBuf {
         self.0.join(path)
     }
 
-    /// Creates an owned [`Utf8PathBuf`] like `self` but with the given file name.
+    /// Creates an owned [`AbsoluteSystemPathBuf`] like `self` but with the given file name.
     ///
-    /// See [`Utf8PathBuf::set_file_name`] for more details.
+    /// See [`AbsoluteSystemPathBuf::set_file_name`] for more details.
     ///
     /// # Examples
     ///
     /// ```
-    /// use camino::{Utf8Path, Utf8PathBuf};
+    /// use pathological::{AbsoluteSystemPath, AbsoluteSystemPathBuf};
     ///
-    /// let path = Utf8Path::new("/tmp/foo.txt");
-    /// assert_eq!(path.with_file_name("bar.txt"), Utf8PathBuf::from("/tmp/bar.txt"));
+    /// let path = AbsoluteSystemPath::new("/tmp/foo.txt");
+    /// assert_eq!(path.with_file_name("bar.txt"), AbsoluteSystemPathBuf::from("/tmp/bar.txt"));
     ///
-    /// let path = Utf8Path::new("/tmp");
-    /// assert_eq!(path.with_file_name("var"), Utf8PathBuf::from("/var"));
+    /// let path = AbsoluteSystemPath::new("/tmp");
+    /// assert_eq!(path.with_file_name("var"), AbsoluteSystemPathBuf::from("/var"));
     /// ```
     #[must_use]
-    pub fn with_file_name(&self, file_name: impl AsRef<str>) -> Utf8PathBuf {
-        Utf8PathBuf(self.0.with_file_name(file_name.as_ref()))
+    pub fn with_file_name(&self, file_name: impl AsRef<str>) -> AbsoluteSystemPathBuf {
+        AbsoluteSystemPathBuf(self.0.with_file_name(file_name.as_ref()))
     }
 
-    /// Creates an owned [`Utf8PathBuf`] like `self` but with the given extension.
+    /// Creates an owned [`AbsoluteSystemPathBuf`] like `self` but with the given extension.
     ///
-    /// See [`Utf8PathBuf::set_extension`] for more details.
+    /// See [`AbsoluteSystemPathBuf::set_extension`] for more details.
     ///
     /// # Examples
     ///
     /// ```
-    /// use camino::{Utf8Path, Utf8PathBuf};
+    /// use pathological::{AbsoluteSystemPath, AbsoluteSystemPathBuf};
     ///
-    /// let path = Utf8Path::new("foo.rs");
-    /// assert_eq!(path.with_extension("txt"), Utf8PathBuf::from("foo.txt"));
+    /// let path = AbsoluteSystemPath::new("foo.rs");
+    /// assert_eq!(path.with_extension("txt"), AbsoluteSystemPathBuf::from("foo.txt"));
     ///
-    /// let path = Utf8Path::new("foo.tar.gz");
-    /// assert_eq!(path.with_extension(""), Utf8PathBuf::from("foo.tar"));
-    /// assert_eq!(path.with_extension("xz"), Utf8PathBuf::from("foo.tar.xz"));
-    /// assert_eq!(path.with_extension("").with_extension("txt"), Utf8PathBuf::from("foo.txt"));
+    /// let path = AbsoluteSystemPath::new("foo.tar.gz");
+    /// assert_eq!(path.with_extension(""), AbsoluteSystemPathBuf::from("foo.tar"));
+    /// assert_eq!(path.with_extension("xz"), AbsoluteSystemPathBuf::from("foo.tar.xz"));
+    /// assert_eq!(path.with_extension("").with_extension("txt"), AbsoluteSystemPathBuf::from("foo.txt"));
     /// ```
-    pub fn with_extension(&self, extension: impl AsRef<str>) -> Utf8PathBuf {
-        Utf8PathBuf(self.0.with_extension(extension.as_ref()))
+    pub fn with_extension(&self, extension: impl AsRef<str>) -> AbsoluteSystemPathBuf {
+        AbsoluteSystemPathBuf(self.0.with_extension(extension.as_ref()))
     }
 
-    /// Produces an iterator over the [`Utf8Component`]s of the path.
+    /// Produces an iterator over the [`AbsoluteSystemPathComponent`]s of the path.
     ///
     /// When parsing the path, there is a small amount of normalization:
     ///
@@ -1059,19 +1059,19 @@ impl Utf8Path {
     /// # Examples
     ///
     /// ```
-    /// use camino::{Utf8Component, Utf8Path};
+    /// use pathological::{AbsoluteSystemPathComponent, AbsoluteSystemPath};
     ///
-    /// let mut components = Utf8Path::new("/tmp/foo.txt").components();
+    /// let mut components = AbsoluteSystemPath::new("/tmp/foo.txt").components();
     ///
-    /// assert_eq!(components.next(), Some(Utf8Component::RootDir));
-    /// assert_eq!(components.next(), Some(Utf8Component::Normal("tmp")));
-    /// assert_eq!(components.next(), Some(Utf8Component::Normal("foo.txt")));
+    /// assert_eq!(components.next(), Some(AbsoluteSystemPathComponent::RootDir));
+    /// assert_eq!(components.next(), Some(AbsoluteSystemPathComponent::Normal("tmp")));
+    /// assert_eq!(components.next(), Some(AbsoluteSystemPathComponent::Normal("foo.txt")));
     /// assert_eq!(components.next(), None)
     /// ```
     ///
-    /// [`CurDir`]: Utf8Component::CurDir
-    pub fn components(&self) -> Utf8Components {
-        Utf8Components(self.0.components())
+    /// [`CurDir`]: AbsoluteSystemPathComponent::CurDir
+    pub fn components(&self) -> AbsoluteSystemPathComponents {
+        AbsoluteSystemPathComponents(self.0.components())
     }
 
     /// Produces an iterator over the path's components viewed as [`str`]
@@ -1080,14 +1080,14 @@ impl Utf8Path {
     /// For more information about the particulars of how the path is separated
     /// into components, see [`components`].
     ///
-    /// [`components`]: Utf8Path::components
+    /// [`components`]: AbsoluteSystemPath::components
     ///
     /// # Examples
     ///
     /// ```
-    /// use camino::Utf8Path;
+    /// use pathological::AbsoluteSystemPath;
     ///
-    /// let mut it = Utf8Path::new("/tmp/foo.txt").iter();
+    /// let mut it = AbsoluteSystemPath::new("/tmp/foo.txt").iter();
     /// assert_eq!(it.next(), Some(std::path::MAIN_SEPARATOR.to_string().as_str()));
     /// assert_eq!(it.next(), Some("tmp"));
     /// assert_eq!(it.next(), Some("foo.txt"));
@@ -1109,9 +1109,9 @@ impl Utf8Path {
     /// # Examples
     ///
     /// ```no_run
-    /// use camino::Utf8Path;
+    /// use pathological::AbsoluteSystemPath;
     ///
-    /// let path = Utf8Path::new("/Minas/tirith");
+    /// let path = AbsoluteSystemPath::new("/Minas/tirith");
     /// let metadata = path.metadata().expect("metadata call failed");
     /// println!("{:?}", metadata.file_type());
     /// ```
@@ -1126,9 +1126,9 @@ impl Utf8Path {
     /// # Examples
     ///
     /// ```no_run
-    /// use camino::Utf8Path;
+    /// use pathological::AbsoluteSystemPath;
     ///
-    /// let path = Utf8Path::new("/Minas/tirith");
+    /// let path = AbsoluteSystemPath::new("/Minas/tirith");
     /// let metadata = path.symlink_metadata().expect("symlink_metadata call failed");
     /// println!("{:?}", metadata.file_type());
     /// ```
@@ -1140,7 +1140,7 @@ impl Utf8Path {
     /// components normalized and symbolic links resolved.
     ///
     /// This returns a [`PathBuf`] because even if a symlink is valid Unicode, its target may not
-    /// be. For a version that returns a [`Utf8PathBuf`], see
+    /// be. For a version that returns a [`AbsoluteSystemPathBuf`], see
     /// [`canonicalize_utf8`](Self::canonicalize_utf8).
     ///
     /// This is an alias to [`fs::canonicalize`].
@@ -1148,10 +1148,10 @@ impl Utf8Path {
     /// # Examples
     ///
     /// ```no_run
-    /// use camino::Utf8Path;
+    /// use pathological::AbsoluteSystemPath;
     /// use std::path::PathBuf;
     ///
-    /// let path = Utf8Path::new("/foo/test/../test/bar.rs");
+    /// let path = AbsoluteSystemPath::new("/foo/test/../test/bar.rs");
     /// assert_eq!(path.canonicalize().unwrap(), PathBuf::from("/foo/test/bar.rs"));
     /// ```
     pub fn canonicalize(&self) -> io::Result<PathBuf> {
@@ -1161,7 +1161,7 @@ impl Utf8Path {
     /// Returns the canonical, absolute form of the path with all intermediate
     /// components normalized and symbolic links resolved.
     ///
-    /// This method attempts to convert the resulting [`PathBuf`] into a [`Utf8PathBuf`]. For a
+    /// This method attempts to convert the resulting [`PathBuf`] into a [`AbsoluteSystemPathBuf`]. For a
     /// version that does not attempt to do this conversion, see
     /// [`canonicalize`](Self::canonicalize).
     ///
@@ -1177,12 +1177,12 @@ impl Utf8Path {
     /// # Examples
     ///
     /// ```no_run
-    /// use camino::{Utf8Path, Utf8PathBuf};
+    /// use pathological::{AbsoluteSystemPath, AbsoluteSystemPathBuf};
     ///
-    /// let path = Utf8Path::new("/foo/test/../test/bar.rs");
-    /// assert_eq!(path.canonicalize_utf8().unwrap(), Utf8PathBuf::from("/foo/test/bar.rs"));
+    /// let path = AbsoluteSystemPath::new("/foo/test/../test/bar.rs");
+    /// assert_eq!(path.canonicalize_utf8().unwrap(), AbsoluteSystemPathBuf::from("/foo/test/bar.rs"));
     /// ```
-    pub fn canonicalize_utf8(&self) -> io::Result<Utf8PathBuf> {
+    pub fn canonicalize_utf8(&self) -> io::Result<AbsoluteSystemPathBuf> {
         self.canonicalize()
             .and_then(|path| path.try_into().map_err(FromPathBufError::into_io_error))
     }
@@ -1190,7 +1190,7 @@ impl Utf8Path {
     /// Reads a symbolic link, returning the file that the link points to.
     ///
     /// This returns a [`PathBuf`] because even if a symlink is valid Unicode, its target may not
-    /// be. For a version that returns a [`Utf8PathBuf`], see
+    /// be. For a version that returns a [`AbsoluteSystemPathBuf`], see
     /// [`read_link_utf8`](Self::read_link_utf8).
     ///
     /// This is an alias to [`fs::read_link`].
@@ -1198,9 +1198,9 @@ impl Utf8Path {
     /// # Examples
     ///
     /// ```no_run
-    /// use camino::Utf8Path;
+    /// use pathological::AbsoluteSystemPath;
     ///
-    /// let path = Utf8Path::new("/laputa/sky_castle.rs");
+    /// let path = AbsoluteSystemPath::new("/laputa/sky_castle.rs");
     /// let path_link = path.read_link().expect("read_link call failed");
     /// ```
     pub fn read_link(&self) -> io::Result<PathBuf> {
@@ -1209,7 +1209,7 @@ impl Utf8Path {
 
     /// Reads a symbolic link, returning the file that the link points to.
     ///
-    /// This method attempts to convert the resulting [`PathBuf`] into a [`Utf8PathBuf`]. For a
+    /// This method attempts to convert the resulting [`PathBuf`] into a [`AbsoluteSystemPathBuf`]. For a
     /// version that does not attempt to do this conversion, see [`read_link`](Self::read_link).
     ///
     /// # Errors
@@ -1224,12 +1224,12 @@ impl Utf8Path {
     /// # Examples
     ///
     /// ```no_run
-    /// use camino::Utf8Path;
+    /// use pathological::AbsoluteSystemPath;
     ///
-    /// let path = Utf8Path::new("/laputa/sky_castle.rs");
+    /// let path = AbsoluteSystemPath::new("/laputa/sky_castle.rs");
     /// let path_link = path.read_link_utf8().expect("read_link call failed");
     /// ```
-    pub fn read_link_utf8(&self) -> io::Result<Utf8PathBuf> {
+    pub fn read_link_utf8(&self) -> io::Result<AbsoluteSystemPathBuf> {
         self.read_link()
             .and_then(|path| path.try_into().map_err(FromPathBufError::into_io_error))
     }
@@ -1244,9 +1244,9 @@ impl Utf8Path {
     /// # Examples
     ///
     /// ```no_run
-    /// use camino::Utf8Path;
+    /// use pathological::AbsoluteSystemPath;
     ///
-    /// let path = Utf8Path::new("/laputa");
+    /// let path = AbsoluteSystemPath::new("/laputa");
     /// for entry in path.read_dir().expect("read_dir call failed") {
     ///     if let Ok(entry) = entry {
     ///         println!("{:?}", entry.path());
@@ -1259,7 +1259,7 @@ impl Utf8Path {
 
     /// Returns an iterator over the entries within a directory.
     ///
-    /// The iterator will yield instances of [`io::Result`]`<`[`Utf8DirEntry`]`>`. New
+    /// The iterator will yield instances of [`io::Result`]`<`[`AbsoluteSystemPathDirEntry`]`>`. New
     /// errors may be encountered after an iterator is initially constructed.
     ///
     /// # Errors
@@ -1274,9 +1274,9 @@ impl Utf8Path {
     /// # Examples
     ///
     /// ```no_run
-    /// use camino::Utf8Path;
+    /// use pathological::AbsoluteSystemPath;
     ///
-    /// let path = Utf8Path::new("/laputa");
+    /// let path = AbsoluteSystemPath::new("/laputa");
     /// for entry in path.read_dir_utf8().expect("read_dir call failed") {
     ///     if let Ok(entry) = entry {
     ///         println!("{}", entry.path());
@@ -1284,8 +1284,8 @@ impl Utf8Path {
     /// }
     /// ```
     #[inline]
-    pub fn read_dir_utf8(&self) -> io::Result<ReadDirUtf8> {
-        self.0.read_dir().map(|inner| ReadDirUtf8 { inner })
+    pub fn read_dir_utf8(&self) -> io::Result<ReadDirAbsoluteSystemPath> {
+        self.0.read_dir().map(|inner| ReadDirAbsoluteSystemPath { inner })
     }
 
     /// Returns `true` if the path points at an existing entity.
@@ -1302,8 +1302,8 @@ impl Utf8Path {
     /// # Examples
     ///
     /// ```no_run
-    /// use camino::Utf8Path;
-    /// assert!(!Utf8Path::new("does_not_exist.txt").exists());
+    /// use pathological::AbsoluteSystemPath;
+    /// assert!(!AbsoluteSystemPath::new("does_not_exist.txt").exists());
     /// ```
     ///
     /// # See Also
@@ -1333,9 +1333,9 @@ impl Utf8Path {
     /// # Examples
     ///
     /// ```no_run
-    /// use camino::Utf8Path;
-    /// assert!(!Utf8Path::new("does_not_exist.txt").try_exists().expect("Can't check existence of file does_not_exist.txt"));
-    /// assert!(Utf8Path::new("/root/secret_file.txt").try_exists().is_err());
+    /// use pathological::AbsoluteSystemPath;
+    /// assert!(!AbsoluteSystemPath::new("does_not_exist.txt").try_exists().expect("Can't check existence of file does_not_exist.txt"));
+    /// assert!(AbsoluteSystemPath::new("/root/secret_file.txt").try_exists().is_err());
     /// ```
     ///
     /// [`exists()`]: Self::exists
@@ -1366,9 +1366,9 @@ impl Utf8Path {
     /// # Examples
     ///
     /// ```no_run
-    /// use camino::Utf8Path;
-    /// assert_eq!(Utf8Path::new("./is_a_directory/").is_file(), false);
-    /// assert_eq!(Utf8Path::new("a_file.txt").is_file(), true);
+    /// use pathological::AbsoluteSystemPath;
+    /// assert_eq!(AbsoluteSystemPath::new("./is_a_directory/").is_file(), false);
+    /// assert_eq!(AbsoluteSystemPath::new("a_file.txt").is_file(), true);
     /// ```
     ///
     /// # See Also
@@ -1398,9 +1398,9 @@ impl Utf8Path {
     /// # Examples
     ///
     /// ```no_run
-    /// use camino::Utf8Path;
-    /// assert_eq!(Utf8Path::new("./is_a_directory/").is_dir(), true);
-    /// assert_eq!(Utf8Path::new("a_file.txt").is_dir(), false);
+    /// use pathological::AbsoluteSystemPath;
+    /// assert_eq!(AbsoluteSystemPath::new("./is_a_directory/").is_dir(), true);
+    /// assert_eq!(AbsoluteSystemPath::new("a_file.txt").is_dir(), false);
     /// ```
     ///
     /// # See Also
@@ -1425,10 +1425,10 @@ impl Utf8Path {
     ///
     #[cfg_attr(unix, doc = "```no_run")]
     #[cfg_attr(not(unix), doc = "```ignore")]
-    /// use camino::Utf8Path;
+    /// use pathological::AbsoluteSystemPath;
     /// use std::os::unix::fs::symlink;
     ///
-    /// let link_path = Utf8Path::new("link");
+    /// let link_path = AbsoluteSystemPath::new("link");
     /// symlink("/origin_does_not_exist/", link_path).unwrap();
     /// assert_eq!(link_path.is_symlink(), true);
     /// assert_eq!(link_path.exists(), false);
@@ -1437,7 +1437,7 @@ impl Utf8Path {
     /// # See Also
     ///
     /// This is a convenience function that coerces errors to false. If you want to
-    /// check errors, call [`Utf8Path::symlink_metadata`] and handle its [`Result`]. Then call
+    /// check errors, call [`AbsoluteSystemPath::symlink_metadata`] and handle its [`Result`]. Then call
     /// [`fs::Metadata::is_symlink`] if it was [`Ok`].
     #[must_use]
     pub fn is_symlink(&self) -> bool {
@@ -1446,213 +1446,213 @@ impl Utf8Path {
             .unwrap_or(false)
     }
 
-    /// Converts a `Box<Utf8Path>` into a [`Utf8PathBuf`] without copying or allocating.
+    /// Converts a `Box<AbsoluteSystemPath>` into a [`AbsoluteSystemPathBuf`] without copying or allocating.
     #[must_use = "`self` will be dropped if the result is not used"]
-    pub fn into_path_buf(self: Box<Utf8Path>) -> Utf8PathBuf {
+    pub fn into_path_buf(self: Box<AbsoluteSystemPath>) -> AbsoluteSystemPathBuf {
         let ptr = Box::into_raw(self) as *mut Path;
         // SAFETY:
         // * self is valid UTF-8
         // * ptr was constructed by consuming self so it represents an owned path.
-        // * Utf8Path is marked as #[repr(transparent)] so the conversion from a *mut Utf8Path to a
+        // * AbsoluteSystemPath is marked as #[repr(transparent)] so the conversion from a *mut AbsoluteSystemPath to a
         //   *mut Path is valid.
         let boxed_path = unsafe { Box::from_raw(ptr) };
-        Utf8PathBuf(boxed_path.into_path_buf())
+        AbsoluteSystemPathBuf(boxed_path.into_path_buf())
     }
 
     // invariant: Path must be guaranteed to be utf-8 data
-    unsafe fn assume_utf8(path: &Path) -> &Utf8Path {
-        // SAFETY: Utf8Path is marked as #[repr(transparent)] so the conversion from a
-        // *const Path to a *const Utf8Path is valid.
-        &*(path as *const Path as *const Utf8Path)
+    unsafe fn coerce_absolute_system_path(path: &Path) -> &AbsoluteSystemPath {
+        // SAFETY: AbsoluteSystemPath is marked as #[repr(transparent)] so the conversion from a
+        // *const Path to a *const AbsoluteSystemPath is valid.
+        &*(path as *const Path as *const AbsoluteSystemPath)
     }
 
     #[cfg(path_buf_deref_mut)]
-    unsafe fn assume_utf8_mut(path: &mut Path) -> &mut Utf8Path {
-        &mut *(path as *mut Path as *mut Utf8Path)
+    unsafe fn coerce_absolute_system_path_mut(path: &mut Path) -> &mut AbsoluteSystemPath {
+        &mut *(path as *mut Path as *mut AbsoluteSystemPath)
     }
 }
 
-impl Clone for Box<Utf8Path> {
+impl Clone for Box<AbsoluteSystemPath> {
     fn clone(&self) -> Self {
         let boxed: Box<Path> = self.0.into();
-        let ptr = Box::into_raw(boxed) as *mut Utf8Path;
+        let ptr = Box::into_raw(boxed) as *mut AbsoluteSystemPath;
         // SAFETY:
         // * self is valid UTF-8
         // * ptr was created by consuming a Box<Path> so it represents an rced pointer
-        // * Utf8Path is marked as #[repr(transparent)] so the conversion from *mut Path to
-        //   *mut Utf8Path is valid
+        // * AbsoluteSystemPath is marked as #[repr(transparent)] so the conversion from *mut Path to
+        //   *mut AbsoluteSystemPath is valid
         unsafe { Box::from_raw(ptr) }
     }
 }
 
-impl fmt::Display for Utf8Path {
+impl fmt::Display for AbsoluteSystemPath {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         fmt::Display::fmt(self.as_str(), f)
     }
 }
 
-impl fmt::Debug for Utf8Path {
+impl fmt::Debug for AbsoluteSystemPath {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         fmt::Debug::fmt(self.as_str(), f)
     }
 }
 
-/// An iterator over [`Utf8Path`] and its ancestors.
+/// An iterator over [`AbsoluteSystemPath`] and its ancestors.
 ///
-/// This `struct` is created by the [`ancestors`] method on [`Utf8Path`].
+/// This `struct` is created by the [`ancestors`] method on [`AbsoluteSystemPath`].
 /// See its documentation for more.
 ///
 /// # Examples
 ///
 /// ```
-/// use camino::Utf8Path;
+/// use pathological::AbsoluteSystemPath;
 ///
-/// let path = Utf8Path::new("/foo/bar");
+/// let path = AbsoluteSystemPath::new("/foo/bar");
 ///
 /// for ancestor in path.ancestors() {
 ///     println!("{}", ancestor);
 /// }
 /// ```
 ///
-/// [`ancestors`]: Utf8Path::ancestors
+/// [`ancestors`]: AbsoluteSystemPath::ancestors
 #[derive(Copy, Clone)]
 #[must_use = "iterators are lazy and do nothing unless consumed"]
 #[repr(transparent)]
-pub struct Utf8Ancestors<'a>(Ancestors<'a>);
+pub struct AbsoluteSystemPathAncestors<'a>(Ancestors<'a>);
 
-impl<'a> fmt::Debug for Utf8Ancestors<'a> {
+impl<'a> fmt::Debug for AbsoluteSystemPathAncestors<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         fmt::Debug::fmt(&self.0, f)
     }
 }
 
-impl<'a> Iterator for Utf8Ancestors<'a> {
-    type Item = &'a Utf8Path;
+impl<'a> Iterator for AbsoluteSystemPathAncestors<'a> {
+    type Item = &'a AbsoluteSystemPath;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next().map(|path| {
-            // SAFETY: Utf8Ancestors was constructed from a Utf8Path, so it is guaranteed to
+            // SAFETY: AbsoluteSystemPathAncestors was constructed from a AbsoluteSystemPath, so it is guaranteed to
             // be valid UTF-8
-            unsafe { Utf8Path::assume_utf8(path) }
+            unsafe { AbsoluteSystemPath::coerce_absolute_system_path(path) }
         })
     }
 }
 
-impl<'a> FusedIterator for Utf8Ancestors<'a> {}
+impl<'a> FusedIterator for AbsoluteSystemPathAncestors<'a> {}
 
-/// An iterator over the [`Utf8Component`]s of a [`Utf8Path`].
+/// An iterator over the [`AbsoluteSystemPathComponent`]s of a [`AbsoluteSystemPath`].
 ///
-/// This `struct` is created by the [`components`] method on [`Utf8Path`].
+/// This `struct` is created by the [`components`] method on [`AbsoluteSystemPath`].
 /// See its documentation for more.
 ///
 /// # Examples
 ///
 /// ```
-/// use camino::Utf8Path;
+/// use pathological::AbsoluteSystemPath;
 ///
-/// let path = Utf8Path::new("/tmp/foo/bar.txt");
+/// let path = AbsoluteSystemPath::new("/tmp/foo/bar.txt");
 ///
 /// for component in path.components() {
 ///     println!("{:?}", component);
 /// }
 /// ```
 ///
-/// [`components`]: Utf8Path::components
+/// [`components`]: AbsoluteSystemPath::components
 #[derive(Clone, Eq, Ord, PartialEq, PartialOrd)]
 #[must_use = "iterators are lazy and do nothing unless consumed"]
-pub struct Utf8Components<'a>(Components<'a>);
+pub struct AbsoluteSystemPathComponents<'a>(Components<'a>);
 
-impl<'a> Utf8Components<'a> {
+impl<'a> AbsoluteSystemPathComponents<'a> {
     /// Extracts a slice corresponding to the portion of the path remaining for iteration.
     ///
     /// # Examples
     ///
     /// ```
-    /// use camino::Utf8Path;
+    /// use pathological::AbsoluteSystemPath;
     ///
-    /// let mut components = Utf8Path::new("/tmp/foo/bar.txt").components();
+    /// let mut components = AbsoluteSystemPath::new("/tmp/foo/bar.txt").components();
     /// components.next();
     /// components.next();
     ///
-    /// assert_eq!(Utf8Path::new("foo/bar.txt"), components.as_path());
+    /// assert_eq!(AbsoluteSystemPath::new("foo/bar.txt"), components.as_path());
     /// ```
     #[must_use]
-    pub fn as_path(&self) -> &'a Utf8Path {
-        // SAFETY: Utf8Components was constructed from a Utf8Path, so it is guaranteed to be valid
+    pub fn as_path(&self) -> &'a AbsoluteSystemPath {
+        // SAFETY: AbsoluteSystemPathComponents was constructed from a AbsoluteSystemPath, so it is guaranteed to be valid
         // UTF-8
-        unsafe { Utf8Path::assume_utf8(self.0.as_path()) }
+        unsafe { AbsoluteSystemPath::coerce_absolute_system_path(self.0.as_path()) }
     }
 }
 
-impl<'a> Iterator for Utf8Components<'a> {
-    type Item = Utf8Component<'a>;
+impl<'a> Iterator for AbsoluteSystemPathComponents<'a> {
+    type Item = AbsoluteSystemPathComponent<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next().map(|component| {
-            // SAFETY: Utf8Component was constructed from a Utf8Path, so it is guaranteed to be
+            // SAFETY: AbsoluteSystemPathComponent was constructed from a AbsoluteSystemPath, so it is guaranteed to be
             // valid UTF-8
-            unsafe { Utf8Component::new(component) }
+            unsafe { AbsoluteSystemPathComponent::new(component) }
         })
     }
 }
 
-impl<'a> FusedIterator for Utf8Components<'a> {}
+impl<'a> FusedIterator for AbsoluteSystemPathComponents<'a> {}
 
-impl<'a> DoubleEndedIterator for Utf8Components<'a> {
+impl<'a> DoubleEndedIterator for AbsoluteSystemPathComponents<'a> {
     fn next_back(&mut self) -> Option<Self::Item> {
         self.0.next_back().map(|component| {
-            // SAFETY: Utf8Component was constructed from a Utf8Path, so it is guaranteed to be
+            // SAFETY: AbsoluteSystemPathComponent was constructed from a AbsoluteSystemPath, so it is guaranteed to be
             // valid UTF-8
-            unsafe { Utf8Component::new(component) }
+            unsafe { AbsoluteSystemPathComponent::new(component) }
         })
     }
 }
 
-impl<'a> fmt::Debug for Utf8Components<'a> {
+impl<'a> fmt::Debug for AbsoluteSystemPathComponents<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         fmt::Debug::fmt(&self.0, f)
     }
 }
 
-impl AsRef<Utf8Path> for Utf8Components<'_> {
-    fn as_ref(&self) -> &Utf8Path {
+impl AsRef<AbsoluteSystemPath> for AbsoluteSystemPathComponents<'_> {
+    fn as_ref(&self) -> &AbsoluteSystemPath {
         self.as_path()
     }
 }
 
-impl AsRef<Path> for Utf8Components<'_> {
+impl AsRef<Path> for AbsoluteSystemPathComponents<'_> {
     fn as_ref(&self) -> &Path {
         self.as_path().as_ref()
     }
 }
 
-impl AsRef<str> for Utf8Components<'_> {
+impl AsRef<str> for AbsoluteSystemPathComponents<'_> {
     fn as_ref(&self) -> &str {
         self.as_path().as_ref()
     }
 }
 
-impl AsRef<OsStr> for Utf8Components<'_> {
+impl AsRef<OsStr> for AbsoluteSystemPathComponents<'_> {
     fn as_ref(&self) -> &OsStr {
         self.as_path().as_os_str()
     }
 }
 
-/// An iterator over the [`Utf8Component`]s of a [`Utf8Path`], as [`str`] slices.
+/// An iterator over the [`AbsoluteSystemPathComponent`]s of a [`AbsoluteSystemPath`], as [`str`] slices.
 ///
-/// This `struct` is created by the [`iter`] method on [`Utf8Path`].
+/// This `struct` is created by the [`iter`] method on [`AbsoluteSystemPath`].
 /// See its documentation for more.
 ///
-/// [`iter`]: Utf8Path::iter
+/// [`iter`]: AbsoluteSystemPath::iter
 #[derive(Clone)]
 #[must_use = "iterators are lazy and do nothing unless consumed"]
 pub struct Iter<'a> {
-    inner: Utf8Components<'a>,
+    inner: AbsoluteSystemPathComponents<'a>,
 }
 
 impl fmt::Debug for Iter<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        struct DebugHelper<'a>(&'a Utf8Path);
+        struct DebugHelper<'a>(&'a AbsoluteSystemPath);
 
         impl fmt::Debug for DebugHelper<'_> {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -1672,22 +1672,22 @@ impl<'a> Iter<'a> {
     /// # Examples
     ///
     /// ```
-    /// use camino::Utf8Path;
+    /// use pathological::AbsoluteSystemPath;
     ///
-    /// let mut iter = Utf8Path::new("/tmp/foo/bar.txt").iter();
+    /// let mut iter = AbsoluteSystemPath::new("/tmp/foo/bar.txt").iter();
     /// iter.next();
     /// iter.next();
     ///
-    /// assert_eq!(Utf8Path::new("foo/bar.txt"), iter.as_path());
+    /// assert_eq!(AbsoluteSystemPath::new("foo/bar.txt"), iter.as_path());
     /// ```
     #[must_use]
-    pub fn as_path(&self) -> &'a Utf8Path {
+    pub fn as_path(&self) -> &'a AbsoluteSystemPath {
         self.inner.as_path()
     }
 }
 
-impl AsRef<Utf8Path> for Iter<'_> {
-    fn as_ref(&self) -> &Utf8Path {
+impl AsRef<AbsoluteSystemPath> for Iter<'_> {
+    fn as_ref(&self) -> &AbsoluteSystemPath {
         self.as_path()
     }
 }
@@ -1728,35 +1728,35 @@ impl FusedIterator for Iter<'_> {}
 
 /// A single component of a path.
 ///
-/// A `Utf8Component` roughly corresponds to a substring between path separators
+/// A `AbsoluteSystemPathComponent` roughly corresponds to a substring between path separators
 /// (`/` or `\`).
 ///
-/// This `enum` is created by iterating over [`Utf8Components`], which in turn is
-/// created by the [`components`](Utf8Path::components) method on [`Utf8Path`].
+/// This `enum` is created by iterating over [`AbsoluteSystemPathComponents`], which in turn is
+/// created by the [`components`](AbsoluteSystemPath::components) method on [`AbsoluteSystemPath`].
 ///
 /// # Examples
 ///
 /// ```rust
-/// use camino::{Utf8Component, Utf8Path};
+/// use pathological::{AbsoluteSystemPathComponent, AbsoluteSystemPath};
 ///
-/// let path = Utf8Path::new("/tmp/foo/bar.txt");
+/// let path = AbsoluteSystemPath::new("/tmp/foo/bar.txt");
 /// let components = path.components().collect::<Vec<_>>();
 /// assert_eq!(&components, &[
-///     Utf8Component::RootDir,
-///     Utf8Component::Normal("tmp"),
-///     Utf8Component::Normal("foo"),
-///     Utf8Component::Normal("bar.txt"),
+///     AbsoluteSystemPathComponent::RootDir,
+///     AbsoluteSystemPathComponent::Normal("tmp"),
+///     AbsoluteSystemPathComponent::Normal("foo"),
+///     AbsoluteSystemPathComponent::Normal("bar.txt"),
 /// ]);
 /// ```
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
-pub enum Utf8Component<'a> {
+pub enum AbsoluteSystemPathComponent<'a> {
     /// A Windows path prefix, e.g., `C:` or `\\server\share`.
     ///
-    /// There is a large variety of prefix types, see [`Utf8Prefix`]'s documentation
+    /// There is a large variety of prefix types, see [`AbsoluteSystemPathPrefix`]'s documentation
     /// for more.
     ///
     /// Does not occur on Unix.
-    Prefix(Utf8PrefixComponent<'a>),
+    Prefix(AbsoluteSystemPathPrefixComponent<'a>),
 
     /// The root directory component, appears after any prefix and before anything else.
     ///
@@ -1776,14 +1776,14 @@ pub enum Utf8Component<'a> {
     Normal(&'a str),
 }
 
-impl<'a> Utf8Component<'a> {
-    unsafe fn new(component: Component<'a>) -> Utf8Component<'a> {
+impl<'a> AbsoluteSystemPathComponent<'a> {
+    unsafe fn new(component: Component<'a>) -> AbsoluteSystemPathComponent<'a> {
         match component {
-            Component::Prefix(prefix) => Utf8Component::Prefix(Utf8PrefixComponent(prefix)),
-            Component::RootDir => Utf8Component::RootDir,
-            Component::CurDir => Utf8Component::CurDir,
-            Component::ParentDir => Utf8Component::ParentDir,
-            Component::Normal(s) => Utf8Component::Normal(assume_utf8(s)),
+            Component::Prefix(prefix) => AbsoluteSystemPathComponent::Prefix(AbsoluteSystemPathPrefixComponent(prefix)),
+            Component::RootDir => AbsoluteSystemPathComponent::RootDir,
+            Component::CurDir => AbsoluteSystemPathComponent::CurDir,
+            Component::ParentDir => AbsoluteSystemPathComponent::ParentDir,
+            Component::Normal(s) => AbsoluteSystemPathComponent::Normal(assume_utf8(s)),
         }
     }
 
@@ -1792,15 +1792,15 @@ impl<'a> Utf8Component<'a> {
     /// # Examples
     ///
     /// ```
-    /// use camino::Utf8Path;
+    /// use pathological::AbsoluteSystemPath;
     ///
-    /// let path = Utf8Path::new("./tmp/foo/bar.txt");
+    /// let path = AbsoluteSystemPath::new("./tmp/foo/bar.txt");
     /// let components: Vec<_> = path.components().map(|comp| comp.as_str()).collect();
     /// assert_eq!(&components, &[".", "tmp", "foo", "bar.txt"]);
     /// ```
     #[must_use]
     pub fn as_str(&self) -> &'a str {
-        // SAFETY: Utf8Component was constructed from a Utf8Path, so it is guaranteed to be
+        // SAFETY: AbsoluteSystemPathComponent was constructed from a AbsoluteSystemPath, so it is guaranteed to be
         // valid UTF-8
         unsafe { assume_utf8(self.as_os_str()) }
     }
@@ -1810,55 +1810,55 @@ impl<'a> Utf8Component<'a> {
     /// # Examples
     ///
     /// ```
-    /// use camino::Utf8Path;
+    /// use pathological::AbsoluteSystemPath;
     ///
-    /// let path = Utf8Path::new("./tmp/foo/bar.txt");
+    /// let path = AbsoluteSystemPath::new("./tmp/foo/bar.txt");
     /// let components: Vec<_> = path.components().map(|comp| comp.as_os_str()).collect();
     /// assert_eq!(&components, &[".", "tmp", "foo", "bar.txt"]);
     /// ```
     #[must_use]
     pub fn as_os_str(&self) -> &'a OsStr {
         match *self {
-            Utf8Component::Prefix(prefix) => prefix.as_os_str(),
-            Utf8Component::RootDir => Component::RootDir.as_os_str(),
-            Utf8Component::CurDir => Component::CurDir.as_os_str(),
-            Utf8Component::ParentDir => Component::ParentDir.as_os_str(),
-            Utf8Component::Normal(s) => OsStr::new(s),
+            AbsoluteSystemPathComponent::Prefix(prefix) => prefix.as_os_str(),
+            AbsoluteSystemPathComponent::RootDir => Component::RootDir.as_os_str(),
+            AbsoluteSystemPathComponent::CurDir => Component::CurDir.as_os_str(),
+            AbsoluteSystemPathComponent::ParentDir => Component::ParentDir.as_os_str(),
+            AbsoluteSystemPathComponent::Normal(s) => OsStr::new(s),
         }
     }
 }
 
-impl<'a> fmt::Debug for Utf8Component<'a> {
+impl<'a> fmt::Debug for AbsoluteSystemPathComponent<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         fmt::Debug::fmt(self.as_os_str(), f)
     }
 }
 
-impl<'a> fmt::Display for Utf8Component<'a> {
+impl<'a> fmt::Display for AbsoluteSystemPathComponent<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         fmt::Display::fmt(self.as_str(), f)
     }
 }
 
-impl AsRef<Utf8Path> for Utf8Component<'_> {
-    fn as_ref(&self) -> &Utf8Path {
+impl AsRef<AbsoluteSystemPath> for AbsoluteSystemPathComponent<'_> {
+    fn as_ref(&self) -> &AbsoluteSystemPath {
         self.as_str().as_ref()
     }
 }
 
-impl AsRef<Path> for Utf8Component<'_> {
+impl AsRef<Path> for AbsoluteSystemPathComponent<'_> {
     fn as_ref(&self) -> &Path {
         self.as_os_str().as_ref()
     }
 }
 
-impl AsRef<str> for Utf8Component<'_> {
+impl AsRef<str> for AbsoluteSystemPathComponent<'_> {
     fn as_ref(&self) -> &str {
         self.as_str()
     }
 }
 
-impl AsRef<OsStr> for Utf8Component<'_> {
+impl AsRef<OsStr> for AbsoluteSystemPathComponent<'_> {
     fn as_ref(&self) -> &OsStr {
         self.as_os_str()
     }
@@ -1875,13 +1875,13 @@ impl AsRef<OsStr> for Utf8Component<'_> {
 /// # Examples
 ///
 /// ```
-/// use camino::{Utf8Component, Utf8Path, Utf8Prefix};
-/// use camino::Utf8Prefix::*;
+/// use pathological::{AbsoluteSystemPathComponent, AbsoluteSystemPath, AbsoluteSystemPathPrefix};
+/// use pathological::AbsoluteSystemPathPrefix::*;
 ///
-/// fn get_path_prefix(s: &str) -> Utf8Prefix {
-///     let path = Utf8Path::new(s);
+/// fn get_path_prefix(s: &str) -> AbsoluteSystemPathPrefix {
+///     let path = AbsoluteSystemPath::new(s);
 ///     match path.components().next().unwrap() {
-///         Utf8Component::Prefix(prefix_component) => prefix_component.kind(),
+///         AbsoluteSystemPathComponent::Prefix(prefix_component) => prefix_component.kind(),
 ///         _ => panic!(),
 ///     }
 /// }
@@ -1896,7 +1896,7 @@ impl AsRef<OsStr> for Utf8Component<'_> {
 /// # }
 /// ```
 #[derive(Copy, Clone, Debug, Hash, PartialOrd, Ord, PartialEq, Eq)]
-pub enum Utf8Prefix<'a> {
+pub enum AbsoluteSystemPathPrefix<'a> {
     /// Verbatim prefix, e.g., `\\?\cat_pics`.
     ///
     /// Verbatim prefixes consist of `\\?\` immediately followed by the given
@@ -1932,13 +1932,13 @@ pub enum Utf8Prefix<'a> {
     Disk(u8),
 }
 
-impl<'a> Utf8Prefix<'a> {
+impl<'a> AbsoluteSystemPathPrefix<'a> {
     /// Determines if the prefix is verbatim, i.e., begins with `\\?\`.
     ///
     /// # Examples
     ///
     /// ```
-    /// use camino::Utf8Prefix::*;
+    /// use pathological::AbsoluteSystemPathPrefix::*;
     ///
     /// assert!(Verbatim("pictures").is_verbatim());
     /// assert!(VerbatimUNC("server", "share").is_verbatim());
@@ -1949,7 +1949,7 @@ impl<'a> Utf8Prefix<'a> {
     /// ```
     #[must_use]
     pub fn is_verbatim(&self) -> bool {
-        use Utf8Prefix::*;
+        use AbsoluteSystemPathPrefix::*;
         match self {
             Verbatim(_) | VerbatimDisk(_) | VerbatimUNC(..) => true,
             _ => false,
@@ -1960,12 +1960,12 @@ impl<'a> Utf8Prefix<'a> {
 /// A structure wrapping a Windows path prefix as well as its unparsed string
 /// representation.
 ///
-/// In addition to the parsed [`Utf8Prefix`] information returned by [`kind`],
-/// `Utf8PrefixComponent` also holds the raw and unparsed [`str`] slice,
+/// In addition to the parsed [`AbsoluteSystemPathPrefix`] information returned by [`kind`],
+/// `AbsoluteSystemPathPrefixComponent` also holds the raw and unparsed [`str`] slice,
 /// returned by [`as_str`].
 ///
 /// Instances of this `struct` can be obtained by matching against the
-/// [`Prefix` variant] on [`Utf8Component`].
+/// [`Prefix` variant] on [`AbsoluteSystemPathComponent`].
 ///
 /// Does not occur on Unix.
 ///
@@ -1973,13 +1973,13 @@ impl<'a> Utf8Prefix<'a> {
 ///
 /// ```
 /// # if cfg!(windows) {
-/// use camino::{Utf8Component, Utf8Path, Utf8Prefix};
+/// use pathological::{AbsoluteSystemPathComponent, AbsoluteSystemPath, AbsoluteSystemPathPrefix};
 /// use std::ffi::OsStr;
 ///
-/// let path = Utf8Path::new(r"c:\you\later\");
+/// let path = AbsoluteSystemPath::new(r"c:\you\later\");
 /// match path.components().next().unwrap() {
-///     Utf8Component::Prefix(prefix_component) => {
-///         assert_eq!(Utf8Prefix::Disk(b'C'), prefix_component.kind());
+///     AbsoluteSystemPathComponent::Prefix(prefix_component) => {
+///         assert_eq!(AbsoluteSystemPathPrefix::Disk(b'C'), prefix_component.kind());
 ///         assert_eq!("c:", prefix_component.as_str());
 ///     }
 ///     _ => unreachable!(),
@@ -1987,44 +1987,44 @@ impl<'a> Utf8Prefix<'a> {
 /// # }
 /// ```
 ///
-/// [`as_str`]: Utf8PrefixComponent::as_str
-/// [`kind`]: Utf8PrefixComponent::kind
-/// [`Prefix` variant]: Utf8Component::Prefix
+/// [`as_str`]: AbsoluteSystemPathPrefixComponent::as_str
+/// [`kind`]: AbsoluteSystemPathPrefixComponent::kind
+/// [`Prefix` variant]: AbsoluteSystemPathComponent::Prefix
 #[repr(transparent)]
 #[derive(Clone, Copy, Eq, PartialEq, Hash, Ord, PartialOrd)]
-pub struct Utf8PrefixComponent<'a>(PrefixComponent<'a>);
+pub struct AbsoluteSystemPathPrefixComponent<'a>(PrefixComponent<'a>);
 
-impl<'a> Utf8PrefixComponent<'a> {
+impl<'a> AbsoluteSystemPathPrefixComponent<'a> {
     /// Returns the parsed prefix data.
     ///
-    /// See [`Utf8Prefix`]'s documentation for more information on the different
+    /// See [`AbsoluteSystemPathPrefix`]'s documentation for more information on the different
     /// kinds of prefixes.
     #[must_use]
-    pub fn kind(&self) -> Utf8Prefix<'a> {
+    pub fn kind(&self) -> AbsoluteSystemPathPrefix<'a> {
         // SAFETY for all the below unsafe blocks: the path self was originally constructed from was
         // UTF-8 so any parts of it are valid UTF-8
         match self.0.kind() {
-            Prefix::Verbatim(prefix) => Utf8Prefix::Verbatim(unsafe { assume_utf8(prefix) }),
+            Prefix::Verbatim(prefix) => AbsoluteSystemPathPrefix::Verbatim(unsafe { assume_utf8(prefix) }),
             Prefix::VerbatimUNC(server, share) => {
                 let server = unsafe { assume_utf8(server) };
                 let share = unsafe { assume_utf8(share) };
-                Utf8Prefix::VerbatimUNC(server, share)
+                AbsoluteSystemPathPrefix::VerbatimUNC(server, share)
             }
-            Prefix::VerbatimDisk(drive) => Utf8Prefix::VerbatimDisk(drive),
-            Prefix::DeviceNS(prefix) => Utf8Prefix::DeviceNS(unsafe { assume_utf8(prefix) }),
+            Prefix::VerbatimDisk(drive) => AbsoluteSystemPathPrefix::VerbatimDisk(drive),
+            Prefix::DeviceNS(prefix) => AbsoluteSystemPathPrefix::DeviceNS(unsafe { assume_utf8(prefix) }),
             Prefix::UNC(server, share) => {
                 let server = unsafe { assume_utf8(server) };
                 let share = unsafe { assume_utf8(share) };
-                Utf8Prefix::UNC(server, share)
+                AbsoluteSystemPathPrefix::UNC(server, share)
             }
-            Prefix::Disk(drive) => Utf8Prefix::Disk(drive),
+            Prefix::Disk(drive) => AbsoluteSystemPathPrefix::Disk(drive),
         }
     }
 
     /// Returns the [`str`] slice for this prefix.
     #[must_use]
     pub fn as_str(&self) -> &'a str {
-        // SAFETY: Utf8PrefixComponent was constructed from a Utf8Path, so it is guaranteed to be
+        // SAFETY: AbsoluteSystemPathPrefixComponent was constructed from a AbsoluteSystemPath, so it is guaranteed to be
         // valid UTF-8
         unsafe { assume_utf8(self.as_os_str()) }
     }
@@ -2036,13 +2036,13 @@ impl<'a> Utf8PrefixComponent<'a> {
     }
 }
 
-impl<'a> fmt::Debug for Utf8PrefixComponent<'a> {
+impl<'a> fmt::Debug for AbsoluteSystemPathPrefixComponent<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         fmt::Debug::fmt(&self.0, f)
     }
 }
 
-impl<'a> fmt::Display for Utf8PrefixComponent<'a> {
+impl<'a> fmt::Display for AbsoluteSystemPathPrefixComponent<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         fmt::Display::fmt(self.as_str(), f)
     }
@@ -2054,8 +2054,8 @@ impl<'a> fmt::Display for Utf8PrefixComponent<'a> {
 
 /// Iterator over the entries in a directory.
 ///
-/// This iterator is returned from [`Utf8Path::read_dir_utf8`] and will yield instances of
-/// <code>[io::Result]<[Utf8DirEntry]></code>. Through a [`Utf8 DirEntry`] information like the entry's path
+/// This iterator is returned from [`AbsoluteSystemPath::read_dir_utf8`] and will yield instances of
+/// <code>[io::Result]<[AbsoluteSystemPathDirEntry]></code>. Through a [`AbsoluteSystemPathDirEntry`] information like the entry's path
 /// and possibly other metadata can be learned.
 ///
 /// The order in which this iterator returns entries is platform and filesystem
@@ -2069,31 +2069,31 @@ impl<'a> fmt::Display for Utf8PrefixComponent<'a> {
 /// If a directory entry is not UTF-8, an [`io::Error`] is returned with the
 /// [`ErrorKind`](io::ErrorKind) set to `InvalidData` and the payload set to a [`FromPathBufError`].
 #[derive(Debug)]
-pub struct ReadDirUtf8 {
+pub struct ReadDirAbsoluteSystemPath {
     inner: fs::ReadDir,
 }
 
-impl Iterator for ReadDirUtf8 {
-    type Item = io::Result<Utf8DirEntry>;
+impl Iterator for ReadDirAbsoluteSystemPath {
+    type Item = io::Result<AbsoluteSystemPathDirEntry>;
 
-    fn next(&mut self) -> Option<io::Result<Utf8DirEntry>> {
+    fn next(&mut self) -> Option<io::Result<AbsoluteSystemPathDirEntry>> {
         self.inner
             .next()
-            .map(|entry| entry.and_then(Utf8DirEntry::new))
+            .map(|entry| entry.and_then(AbsoluteSystemPathDirEntry::new))
     }
 }
 
-/// Entries returned by the [`ReadDirUtf8`] iterator.
+/// Entries returned by the [`ReadDirAbsoluteSystemPath`] iterator.
 ///
-/// An instance of `Utf8DirEntry` represents an entry inside of a directory on the filesystem. Each
+/// An instance of `AbsoluteSystemPathDirEntry` represents an entry inside of a directory on the filesystem. Each
 /// entry can be inspected via methods to learn about the full path or possibly other metadata.
 #[derive(Debug)]
-pub struct Utf8DirEntry {
+pub struct AbsoluteSystemPathDirEntry {
     inner: fs::DirEntry,
-    path: Utf8PathBuf,
+    path: AbsoluteSystemPathBuf,
 }
 
-impl Utf8DirEntry {
+impl AbsoluteSystemPathDirEntry {
     fn new(inner: fs::DirEntry) -> io::Result<Self> {
         let path = inner
             .path()
@@ -2110,10 +2110,10 @@ impl Utf8DirEntry {
     /// # Examples
     ///
     /// ```no_run
-    /// use camino::Utf8Path;
+    /// use pathological::AbsoluteSystemPath;
     ///
     /// fn main() -> std::io::Result<()> {
-    ///     for entry in Utf8Path::new(".").read_dir_utf8()? {
+    ///     for entry in AbsoluteSystemPath::new(".").read_dir_utf8()? {
     ///         let dir = entry?;
     ///         println!("{}", dir.path());
     ///     }
@@ -2131,14 +2131,14 @@ impl Utf8DirEntry {
     ///
     /// The exact text, of course, depends on what files you have in `.`.
     #[inline]
-    pub fn path(&self) -> &Utf8Path {
+    pub fn path(&self) -> &AbsoluteSystemPath {
         &self.path
     }
 
     /// Returns the metadata for the file that this entry points at.
     ///
     /// This function will not traverse symlinks if this entry points at a symlink. To traverse
-    /// symlinks use [`Utf8Path::metadata`] or [`fs::File::metadata`].
+    /// symlinks use [`AbsoluteSystemPath::metadata`] or [`fs::File::metadata`].
     ///
     /// # Platform-specific behavior
     ///
@@ -2149,12 +2149,12 @@ impl Utf8DirEntry {
     /// # Examples
     ///
     /// ```
-    /// use camino::Utf8Path;
+    /// use pathological::AbsoluteSystemPath;
     ///
-    /// if let Ok(entries) = Utf8Path::new(".").read_dir_utf8() {
+    /// if let Ok(entries) = AbsoluteSystemPath::new(".").read_dir_utf8() {
     ///     for entry in entries {
     ///         if let Ok(entry) = entry {
-    ///             // Here, `entry` is a `Utf8DirEntry`.
+    ///             // Here, `entry` is a `AbsoluteSystemPathDirEntry`.
     ///             if let Ok(metadata) = entry.metadata() {
     ///                 // Now let's show our entry's permissions!
     ///                 println!("{}: {:?}", entry.path(), metadata.permissions());
@@ -2184,9 +2184,9 @@ impl Utf8DirEntry {
     /// # Examples
     ///
     /// ```
-    /// use camino::Utf8Path;
+    /// use pathological::AbsoluteSystemPath;
     ///
-    /// if let Ok(entries) = Utf8Path::new(".").read_dir_utf8() {
+    /// if let Ok(entries) = AbsoluteSystemPath::new(".").read_dir_utf8() {
     ///     for entry in entries {
     ///         if let Ok(entry) = entry {
     ///             // Here, `entry` is a `DirEntry`.
@@ -2211,9 +2211,9 @@ impl Utf8DirEntry {
     /// # Examples
     ///
     /// ```
-    /// use camino::Utf8Path;
+    /// use pathological::AbsoluteSystemPath;
     ///
-    /// if let Ok(entries) = Utf8Path::new(".").read_dir_utf8() {
+    /// if let Ok(entries) = AbsoluteSystemPath::new(".").read_dir_utf8() {
     ///     for entry in entries {
     ///         if let Ok(entry) = entry {
     ///             // Here, `entry` is a `DirEntry`.
@@ -2228,7 +2228,7 @@ impl Utf8DirEntry {
             .expect("path created through DirEntry must have a filename")
     }
 
-    /// Returns the original [`fs::DirEntry`] within this [`Utf8DirEntry`].
+    /// Returns the original [`fs::DirEntry`] within this [`AbsoluteSystemPathDirEntry`].
     #[inline]
     pub fn into_inner(self) -> fs::DirEntry {
         self.inner
@@ -2238,25 +2238,25 @@ impl Utf8DirEntry {
     ///
     /// This is analogous to [`path`], but moves ownership of the path.
     ///
-    /// [`path`]: struct.Utf8DirEntry.html#method.path
+    /// [`path`]: struct.AbsoluteSystemPathDirEntry.html#method.path
     #[inline]
     #[must_use = "`self` will be dropped if the result is not used"]
-    pub fn into_path(self) -> Utf8PathBuf {
+    pub fn into_path(self) -> AbsoluteSystemPathBuf {
         self.path
     }
 }
 
-impl From<String> for Utf8PathBuf {
-    fn from(string: String) -> Utf8PathBuf {
-        Utf8PathBuf(string.into())
+impl From<String> for AbsoluteSystemPathBuf {
+    fn from(string: String) -> AbsoluteSystemPathBuf {
+        AbsoluteSystemPathBuf(string.into())
     }
 }
 
-impl FromStr for Utf8PathBuf {
+impl FromStr for AbsoluteSystemPathBuf {
     type Err = Infallible;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(Utf8PathBuf(s.into()))
+        Ok(AbsoluteSystemPathBuf(s.into()))
     }
 }
 
@@ -2264,9 +2264,9 @@ impl FromStr for Utf8PathBuf {
 // From impls: borrowed -> borrowed
 // ---
 
-impl<'a> From<&'a str> for &'a Utf8Path {
-    fn from(s: &'a str) -> &'a Utf8Path {
-        Utf8Path::new(s)
+impl<'a> From<&'a str> for &'a AbsoluteSystemPath {
+    fn from(s: &'a str) -> &'a AbsoluteSystemPath {
+        AbsoluteSystemPath::new(s)
     }
 }
 
@@ -2274,70 +2274,70 @@ impl<'a> From<&'a str> for &'a Utf8Path {
 // From impls: borrowed -> owned
 // ---
 
-impl<T: ?Sized + AsRef<str>> From<&T> for Utf8PathBuf {
-    fn from(s: &T) -> Utf8PathBuf {
-        Utf8PathBuf::from(s.as_ref().to_owned())
+impl<T: ?Sized + AsRef<str>> From<&T> for AbsoluteSystemPathBuf {
+    fn from(s: &T) -> AbsoluteSystemPathBuf {
+        AbsoluteSystemPathBuf::from(s.as_ref().to_owned())
     }
 }
 
-impl<T: ?Sized + AsRef<str>> From<&T> for Box<Utf8Path> {
-    fn from(s: &T) -> Box<Utf8Path> {
-        Utf8PathBuf::from(s).into_boxed_path()
+impl<T: ?Sized + AsRef<str>> From<&T> for Box<AbsoluteSystemPath> {
+    fn from(s: &T) -> Box<AbsoluteSystemPath> {
+        AbsoluteSystemPathBuf::from(s).into_boxed_path()
     }
 }
 
-impl From<&'_ Utf8Path> for Arc<Utf8Path> {
-    fn from(path: &Utf8Path) -> Arc<Utf8Path> {
+impl From<&'_ AbsoluteSystemPath> for Arc<AbsoluteSystemPath> {
+    fn from(path: &AbsoluteSystemPath) -> Arc<AbsoluteSystemPath> {
         let arc: Arc<Path> = Arc::from(AsRef::<Path>::as_ref(path));
-        let ptr = Arc::into_raw(arc) as *const Utf8Path;
+        let ptr = Arc::into_raw(arc) as *const AbsoluteSystemPath;
         // SAFETY:
         // * path is valid UTF-8
         // * ptr was created by consuming an Arc<Path> so it represents an arced pointer
-        // * Utf8Path is marked as #[repr(transparent)] so the conversion from *const Path to
-        //   *const Utf8Path is valid
+        // * AbsoluteSystemPath is marked as #[repr(transparent)] so the conversion from *const Path to
+        //   *const AbsoluteSystemPath is valid
         unsafe { Arc::from_raw(ptr) }
     }
 }
 
-impl From<&'_ Utf8Path> for Rc<Utf8Path> {
-    fn from(path: &Utf8Path) -> Rc<Utf8Path> {
+impl From<&'_ AbsoluteSystemPath> for Rc<AbsoluteSystemPath> {
+    fn from(path: &AbsoluteSystemPath) -> Rc<AbsoluteSystemPath> {
         let rc: Rc<Path> = Rc::from(AsRef::<Path>::as_ref(path));
-        let ptr = Rc::into_raw(rc) as *const Utf8Path;
+        let ptr = Rc::into_raw(rc) as *const AbsoluteSystemPath;
         // SAFETY:
         // * path is valid UTF-8
         // * ptr was created by consuming an Rc<Path> so it represents an rced pointer
-        // * Utf8Path is marked as #[repr(transparent)] so the conversion from *const Path to
-        //   *const Utf8Path is valid
+        // * AbsoluteSystemPath is marked as #[repr(transparent)] so the conversion from *const Path to
+        //   *const AbsoluteSystemPath is valid
         unsafe { Rc::from_raw(ptr) }
     }
 }
 
-impl<'a> From<&'a Utf8Path> for Cow<'a, Utf8Path> {
-    fn from(path: &'a Utf8Path) -> Cow<'a, Utf8Path> {
+impl<'a> From<&'a AbsoluteSystemPath> for Cow<'a, AbsoluteSystemPath> {
+    fn from(path: &'a AbsoluteSystemPath) -> Cow<'a, AbsoluteSystemPath> {
         Cow::Borrowed(path)
     }
 }
 
-impl From<&'_ Utf8Path> for Box<Path> {
-    fn from(path: &Utf8Path) -> Box<Path> {
+impl From<&'_ AbsoluteSystemPath> for Box<Path> {
+    fn from(path: &AbsoluteSystemPath) -> Box<Path> {
         AsRef::<Path>::as_ref(path).into()
     }
 }
 
-impl From<&'_ Utf8Path> for Arc<Path> {
-    fn from(path: &Utf8Path) -> Arc<Path> {
+impl From<&'_ AbsoluteSystemPath> for Arc<Path> {
+    fn from(path: &AbsoluteSystemPath) -> Arc<Path> {
         AsRef::<Path>::as_ref(path).into()
     }
 }
 
-impl From<&'_ Utf8Path> for Rc<Path> {
-    fn from(path: &Utf8Path) -> Rc<Path> {
+impl From<&'_ AbsoluteSystemPath> for Rc<Path> {
+    fn from(path: &AbsoluteSystemPath) -> Rc<Path> {
         AsRef::<Path>::as_ref(path).into()
     }
 }
 
-impl<'a> From<&'a Utf8Path> for Cow<'a, Path> {
-    fn from(path: &'a Utf8Path) -> Cow<'a, Path> {
+impl<'a> From<&'a AbsoluteSystemPath> for Cow<'a, Path> {
+    fn from(path: &'a AbsoluteSystemPath) -> Cow<'a, Path> {
         Cow::Borrowed(path.as_ref())
     }
 }
@@ -2346,94 +2346,94 @@ impl<'a> From<&'a Utf8Path> for Cow<'a, Path> {
 // From impls: owned -> owned
 // ---
 
-impl From<Box<Utf8Path>> for Utf8PathBuf {
-    fn from(path: Box<Utf8Path>) -> Utf8PathBuf {
+impl From<Box<AbsoluteSystemPath>> for AbsoluteSystemPathBuf {
+    fn from(path: Box<AbsoluteSystemPath>) -> AbsoluteSystemPathBuf {
         path.into_path_buf()
     }
 }
 
-impl From<Utf8PathBuf> for Box<Utf8Path> {
-    fn from(path: Utf8PathBuf) -> Box<Utf8Path> {
+impl From<AbsoluteSystemPathBuf> for Box<AbsoluteSystemPath> {
+    fn from(path: AbsoluteSystemPathBuf) -> Box<AbsoluteSystemPath> {
         path.into_boxed_path()
     }
 }
 
-impl<'a> From<Cow<'a, Utf8Path>> for Utf8PathBuf {
-    fn from(path: Cow<'a, Utf8Path>) -> Utf8PathBuf {
+impl<'a> From<Cow<'a, AbsoluteSystemPath>> for AbsoluteSystemPathBuf {
+    fn from(path: Cow<'a, AbsoluteSystemPath>) -> AbsoluteSystemPathBuf {
         path.into_owned()
     }
 }
 
-impl From<Utf8PathBuf> for String {
-    fn from(path: Utf8PathBuf) -> String {
+impl From<AbsoluteSystemPathBuf> for String {
+    fn from(path: AbsoluteSystemPathBuf) -> String {
         path.into_string()
     }
 }
 
-impl From<Utf8PathBuf> for OsString {
-    fn from(path: Utf8PathBuf) -> OsString {
+impl From<AbsoluteSystemPathBuf> for OsString {
+    fn from(path: AbsoluteSystemPathBuf) -> OsString {
         path.into_os_string()
     }
 }
 
-impl<'a> From<Utf8PathBuf> for Cow<'a, Utf8Path> {
-    fn from(path: Utf8PathBuf) -> Cow<'a, Utf8Path> {
+impl<'a> From<AbsoluteSystemPathBuf> for Cow<'a, AbsoluteSystemPath> {
+    fn from(path: AbsoluteSystemPathBuf) -> Cow<'a, AbsoluteSystemPath> {
         Cow::Owned(path)
     }
 }
 
-impl From<Utf8PathBuf> for Arc<Utf8Path> {
-    fn from(path: Utf8PathBuf) -> Arc<Utf8Path> {
+impl From<AbsoluteSystemPathBuf> for Arc<AbsoluteSystemPath> {
+    fn from(path: AbsoluteSystemPathBuf) -> Arc<AbsoluteSystemPath> {
         let arc: Arc<Path> = Arc::from(path.0);
-        let ptr = Arc::into_raw(arc) as *const Utf8Path;
+        let ptr = Arc::into_raw(arc) as *const AbsoluteSystemPath;
         // SAFETY:
         // * path is valid UTF-8
         // * ptr was created by consuming an Arc<Path> so it represents an arced pointer
-        // * Utf8Path is marked as #[repr(transparent)] so the conversion from *const Path to
-        //   *const Utf8Path is valid
+        // * AbsoluteSystemPath is marked as #[repr(transparent)] so the conversion from *const Path to
+        //   *const AbsoluteSystemPath is valid
         unsafe { Arc::from_raw(ptr) }
     }
 }
 
-impl From<Utf8PathBuf> for Rc<Utf8Path> {
-    fn from(path: Utf8PathBuf) -> Rc<Utf8Path> {
+impl From<AbsoluteSystemPathBuf> for Rc<AbsoluteSystemPath> {
+    fn from(path: AbsoluteSystemPathBuf) -> Rc<AbsoluteSystemPath> {
         let rc: Rc<Path> = Rc::from(path.0);
-        let ptr = Rc::into_raw(rc) as *const Utf8Path;
+        let ptr = Rc::into_raw(rc) as *const AbsoluteSystemPath;
         // SAFETY:
         // * path is valid UTF-8
         // * ptr was created by consuming an Rc<Path> so it represents an rced pointer
-        // * Utf8Path is marked as #[repr(transparent)] so the conversion from *const Path to
-        //   *const Utf8Path is valid
+        // * AbsoluteSystemPath is marked as #[repr(transparent)] so the conversion from *const Path to
+        //   *const AbsoluteSystemPath is valid
         unsafe { Rc::from_raw(ptr) }
     }
 }
 
-impl From<Utf8PathBuf> for PathBuf {
-    fn from(path: Utf8PathBuf) -> PathBuf {
+impl From<AbsoluteSystemPathBuf> for PathBuf {
+    fn from(path: AbsoluteSystemPathBuf) -> PathBuf {
         path.0
     }
 }
 
-impl From<Utf8PathBuf> for Box<Path> {
-    fn from(path: Utf8PathBuf) -> Box<Path> {
+impl From<AbsoluteSystemPathBuf> for Box<Path> {
+    fn from(path: AbsoluteSystemPathBuf) -> Box<Path> {
         PathBuf::from(path).into_boxed_path()
     }
 }
 
-impl From<Utf8PathBuf> for Arc<Path> {
-    fn from(path: Utf8PathBuf) -> Arc<Path> {
+impl From<AbsoluteSystemPathBuf> for Arc<Path> {
+    fn from(path: AbsoluteSystemPathBuf) -> Arc<Path> {
         PathBuf::from(path).into()
     }
 }
 
-impl From<Utf8PathBuf> for Rc<Path> {
-    fn from(path: Utf8PathBuf) -> Rc<Path> {
+impl From<AbsoluteSystemPathBuf> for Rc<Path> {
+    fn from(path: AbsoluteSystemPathBuf) -> Rc<Path> {
         PathBuf::from(path).into()
     }
 }
 
-impl<'a> From<Utf8PathBuf> for Cow<'a, Path> {
-    fn from(path: Utf8PathBuf) -> Cow<'a, Path> {
+impl<'a> From<AbsoluteSystemPathBuf> for Cow<'a, Path> {
+    fn from(path: AbsoluteSystemPathBuf) -> Cow<'a, Path> {
         PathBuf::from(path).into()
     }
 }
@@ -2442,33 +2442,33 @@ impl<'a> From<Utf8PathBuf> for Cow<'a, Path> {
 // TryFrom impls
 // ---
 
-impl TryFrom<PathBuf> for Utf8PathBuf {
+impl TryFrom<PathBuf> for AbsoluteSystemPathBuf {
     type Error = FromPathBufError;
 
-    fn try_from(path: PathBuf) -> Result<Utf8PathBuf, Self::Error> {
-        Utf8PathBuf::from_path_buf(path).map_err(|path| FromPathBufError {
+    fn try_from(path: PathBuf) -> Result<AbsoluteSystemPathBuf, Self::Error> {
+        AbsoluteSystemPathBuf::from_path_buf(path).map_err(|path| FromPathBufError {
             path,
             error: FromPathError(()),
         })
     }
 }
 
-impl<'a> TryFrom<&'a Path> for &'a Utf8Path {
+impl<'a> TryFrom<&'a Path> for &'a AbsoluteSystemPath {
     type Error = FromPathError;
 
-    fn try_from(path: &'a Path) -> Result<&'a Utf8Path, Self::Error> {
-        Utf8Path::from_path(path).ok_or(FromPathError(()))
+    fn try_from(path: &'a Path) -> Result<&'a AbsoluteSystemPath, Self::Error> {
+        AbsoluteSystemPath::from_path(path).ok_or(FromPathError(()))
     }
 }
 
-/// A possible error value while converting a [`PathBuf`] to a [`Utf8PathBuf`].
+/// A possible error value while converting a [`PathBuf`] to a [`AbsoluteSystemPathBuf`].
 ///
-/// Produced by the `TryFrom<PathBuf>` implementation for [`Utf8PathBuf`].
+/// Produced by the `TryFrom<PathBuf>` implementation for [`AbsoluteSystemPathBuf`].
 ///
 /// # Examples
 ///
 /// ```
-/// use camino::{Utf8PathBuf, FromPathBufError};
+/// use pathological::{AbsoluteSystemPathBuf, FromPathBufError};
 /// use std::convert::{TryFrom, TryInto};
 /// use std::ffi::OsStr;
 /// # #[cfg(unix)]
@@ -2476,7 +2476,7 @@ impl<'a> TryFrom<&'a Path> for &'a Utf8Path {
 /// use std::path::PathBuf;
 ///
 /// let unicode_path = PathBuf::from("/valid/unicode");
-/// let utf8_path_buf: Utf8PathBuf = unicode_path.try_into().expect("valid Unicode path succeeded");
+/// let utf8_path_buf: AbsoluteSystemPathBuf = unicode_path.try_into().expect("valid Unicode path succeeded");
 ///
 /// // Paths on Unix can be non-UTF-8.
 /// # #[cfg(unix)]
@@ -2484,7 +2484,7 @@ impl<'a> TryFrom<&'a Path> for &'a Utf8Path {
 /// # #[cfg(unix)]
 /// let non_unicode_path = PathBuf::from(non_unicode_str);
 /// # #[cfg(unix)]
-/// let err: FromPathBufError = Utf8PathBuf::try_from(non_unicode_path.clone())
+/// let err: FromPathBufError = AbsoluteSystemPathBuf::try_from(non_unicode_path.clone())
 ///     .expect_err("non-Unicode path failed");
 /// # #[cfg(unix)]
 /// assert_eq!(err.as_path(), &non_unicode_path);
@@ -2498,12 +2498,12 @@ pub struct FromPathBufError {
 }
 
 impl FromPathBufError {
-    /// Returns the [`Path`] slice that was attempted to be converted to [`Utf8PathBuf`].
+    /// Returns the [`Path`] slice that was attempted to be converted to [`AbsoluteSystemPathBuf`].
     pub fn as_path(&self) -> &Path {
         &self.path
     }
 
-    /// Returns the [`PathBuf`] that was attempted to be converted to [`Utf8PathBuf`].
+    /// Returns the [`PathBuf`] that was attempted to be converted to [`AbsoluteSystemPathBuf`].
     pub fn into_path_buf(self) -> PathBuf {
         self.path
     }
@@ -2540,15 +2540,15 @@ impl error::Error for FromPathBufError {
     }
 }
 
-/// A possible error value while converting a [`Path`] to a [`Utf8Path`].
+/// A possible error value while converting a [`Path`] to a [`AbsoluteSystemPath`].
 ///
-/// Produced by the `TryFrom<&Path>` implementation for [`&Utf8Path`](Utf8Path).
+/// Produced by the `TryFrom<&Path>` implementation for [`&AbsoluteSystemPath`](AbsoluteSystemPath).
 ///
 ///
 /// # Examples
 ///
 /// ```
-/// use camino::{Utf8Path, FromPathError};
+/// use pathological::{AbsoluteSystemPath, FromPathError};
 /// use std::convert::{TryFrom, TryInto};
 /// use std::ffi::OsStr;
 /// # #[cfg(unix)]
@@ -2556,7 +2556,7 @@ impl error::Error for FromPathBufError {
 /// use std::path::Path;
 ///
 /// let unicode_path = Path::new("/valid/unicode");
-/// let utf8_path: &Utf8Path = unicode_path.try_into().expect("valid Unicode path succeeded");
+/// let utf8_path: &AbsoluteSystemPath = unicode_path.try_into().expect("valid Unicode path succeeded");
 ///
 /// // Paths on Unix can be non-UTF-8.
 /// # #[cfg(unix)]
@@ -2564,7 +2564,7 @@ impl error::Error for FromPathBufError {
 /// # #[cfg(unix)]
 /// let non_unicode_path = Path::new(non_unicode_str);
 /// # #[cfg(unix)]
-/// let err: FromPathError = <&Utf8Path>::try_from(non_unicode_path)
+/// let err: FromPathError = <&AbsoluteSystemPath>::try_from(non_unicode_path)
 ///     .expect_err("non-Unicode path failed");
 /// ```
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -2599,61 +2599,61 @@ impl error::Error for FromPathError {
 // AsRef impls
 // ---
 
-impl AsRef<Utf8Path> for Utf8Path {
-    fn as_ref(&self) -> &Utf8Path {
+impl AsRef<AbsoluteSystemPath> for AbsoluteSystemPath {
+    fn as_ref(&self) -> &AbsoluteSystemPath {
         self
     }
 }
 
-impl AsRef<Utf8Path> for Utf8PathBuf {
-    fn as_ref(&self) -> &Utf8Path {
+impl AsRef<AbsoluteSystemPath> for AbsoluteSystemPathBuf {
+    fn as_ref(&self) -> &AbsoluteSystemPath {
         self.as_path()
     }
 }
 
-impl AsRef<Utf8Path> for str {
-    fn as_ref(&self) -> &Utf8Path {
-        Utf8Path::new(self)
+impl AsRef<AbsoluteSystemPath> for str {
+    fn as_ref(&self) -> &AbsoluteSystemPath {
+        AbsoluteSystemPath::new(self)
     }
 }
 
-impl AsRef<Utf8Path> for String {
-    fn as_ref(&self) -> &Utf8Path {
-        Utf8Path::new(self)
+impl AsRef<AbsoluteSystemPath> for String {
+    fn as_ref(&self) -> &AbsoluteSystemPath {
+        AbsoluteSystemPath::new(self)
     }
 }
 
-impl AsRef<Path> for Utf8Path {
+impl AsRef<Path> for AbsoluteSystemPath {
     fn as_ref(&self) -> &Path {
         &self.0
     }
 }
 
-impl AsRef<Path> for Utf8PathBuf {
+impl AsRef<Path> for AbsoluteSystemPathBuf {
     fn as_ref(&self) -> &Path {
         &self.0
     }
 }
 
-impl AsRef<str> for Utf8Path {
+impl AsRef<str> for AbsoluteSystemPath {
     fn as_ref(&self) -> &str {
         self.as_str()
     }
 }
 
-impl AsRef<str> for Utf8PathBuf {
+impl AsRef<str> for AbsoluteSystemPathBuf {
     fn as_ref(&self) -> &str {
         self.as_str()
     }
 }
 
-impl AsRef<OsStr> for Utf8Path {
+impl AsRef<OsStr> for AbsoluteSystemPath {
     fn as_ref(&self) -> &OsStr {
         self.as_os_str()
     }
 }
 
-impl AsRef<OsStr> for Utf8PathBuf {
+impl AsRef<OsStr> for AbsoluteSystemPathBuf {
     fn as_ref(&self) -> &OsStr {
         self.as_os_str()
     }
@@ -2663,23 +2663,23 @@ impl AsRef<OsStr> for Utf8PathBuf {
 // Borrow and ToOwned
 // ---
 
-impl Borrow<Utf8Path> for Utf8PathBuf {
-    fn borrow(&self) -> &Utf8Path {
+impl Borrow<AbsoluteSystemPath> for AbsoluteSystemPathBuf {
+    fn borrow(&self) -> &AbsoluteSystemPath {
         self.as_path()
     }
 }
 
-impl ToOwned for Utf8Path {
-    type Owned = Utf8PathBuf;
+impl ToOwned for AbsoluteSystemPath {
+    type Owned = AbsoluteSystemPathBuf;
 
-    fn to_owned(&self) -> Utf8PathBuf {
+    fn to_owned(&self) -> AbsoluteSystemPathBuf {
         self.to_path_buf()
     }
 }
 
-impl<P: AsRef<Utf8Path>> std::iter::FromIterator<P> for Utf8PathBuf {
-    fn from_iter<I: IntoIterator<Item = P>>(iter: I) -> Utf8PathBuf {
-        let mut buf = Utf8PathBuf::new();
+impl<P: AsRef<AbsoluteSystemPath>> std::iter::FromIterator<P> for AbsoluteSystemPathBuf {
+    fn from_iter<I: IntoIterator<Item = P>>(iter: I) -> AbsoluteSystemPathBuf {
+        let mut buf = AbsoluteSystemPathBuf::new();
         buf.extend(iter);
         buf
     }
@@ -2689,41 +2689,41 @@ impl<P: AsRef<Utf8Path>> std::iter::FromIterator<P> for Utf8PathBuf {
 // [Partial]Eq, [Partial]Ord, Hash
 // ---
 
-impl PartialEq for Utf8PathBuf {
-    fn eq(&self, other: &Utf8PathBuf) -> bool {
+impl PartialEq for AbsoluteSystemPathBuf {
+    fn eq(&self, other: &AbsoluteSystemPathBuf) -> bool {
         self.components() == other.components()
     }
 }
 
-impl Eq for Utf8PathBuf {}
+impl Eq for AbsoluteSystemPathBuf {}
 
-impl Hash for Utf8PathBuf {
+impl Hash for AbsoluteSystemPathBuf {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.as_path().hash(state)
     }
 }
 
-impl PartialOrd for Utf8PathBuf {
-    fn partial_cmp(&self, other: &Utf8PathBuf) -> Option<Ordering> {
+impl PartialOrd for AbsoluteSystemPathBuf {
+    fn partial_cmp(&self, other: &AbsoluteSystemPathBuf) -> Option<Ordering> {
         self.components().partial_cmp(other.components())
     }
 }
 
-impl Ord for Utf8PathBuf {
-    fn cmp(&self, other: &Utf8PathBuf) -> Ordering {
+impl Ord for AbsoluteSystemPathBuf {
+    fn cmp(&self, other: &AbsoluteSystemPathBuf) -> Ordering {
         self.components().cmp(other.components())
     }
 }
 
-impl PartialEq for Utf8Path {
-    fn eq(&self, other: &Utf8Path) -> bool {
+impl PartialEq for AbsoluteSystemPath {
+    fn eq(&self, other: &AbsoluteSystemPath) -> bool {
         self.components().eq(other.components())
     }
 }
 
-impl Eq for Utf8Path {}
+impl Eq for AbsoluteSystemPath {}
 
-impl Hash for Utf8Path {
+impl Hash for AbsoluteSystemPath {
     fn hash<H: Hasher>(&self, state: &mut H) {
         for component in self.components() {
             component.hash(state)
@@ -2731,19 +2731,19 @@ impl Hash for Utf8Path {
     }
 }
 
-impl PartialOrd for Utf8Path {
-    fn partial_cmp(&self, other: &Utf8Path) -> Option<Ordering> {
+impl PartialOrd for AbsoluteSystemPath {
+    fn partial_cmp(&self, other: &AbsoluteSystemPath) -> Option<Ordering> {
         self.components().partial_cmp(other.components())
     }
 }
 
-impl Ord for Utf8Path {
-    fn cmp(&self, other: &Utf8Path) -> Ordering {
+impl Ord for AbsoluteSystemPath {
+    fn cmp(&self, other: &AbsoluteSystemPath) -> Ordering {
         self.components().cmp(other.components())
     }
 }
 
-impl<'a> IntoIterator for &'a Utf8PathBuf {
+impl<'a> IntoIterator for &'a AbsoluteSystemPathBuf {
     type Item = &'a str;
     type IntoIter = Iter<'a>;
     fn into_iter(self) -> Iter<'a> {
@@ -2751,7 +2751,7 @@ impl<'a> IntoIterator for &'a Utf8PathBuf {
     }
 }
 
-impl<'a> IntoIterator for &'a Utf8Path {
+impl<'a> IntoIterator for &'a AbsoluteSystemPath {
     type Item = &'a str;
     type IntoIter = Iter<'a>;
     fn into_iter(self) -> Iter<'a> {
@@ -2765,7 +2765,7 @@ macro_rules! impl_cmp {
         impl<'a, 'b> PartialEq<$rhs> for $lhs {
             #[inline]
             fn eq(&self, other: &$rhs) -> bool {
-                <Utf8Path as PartialEq>::eq(self, other)
+                <AbsoluteSystemPath as PartialEq>::eq(self, other)
             }
         }
 
@@ -2773,7 +2773,7 @@ macro_rules! impl_cmp {
         impl<'a, 'b> PartialEq<$lhs> for $rhs {
             #[inline]
             fn eq(&self, other: &$lhs) -> bool {
-                <Utf8Path as PartialEq>::eq(self, other)
+                <AbsoluteSystemPath as PartialEq>::eq(self, other)
             }
         }
 
@@ -2781,7 +2781,7 @@ macro_rules! impl_cmp {
         impl<'a, 'b> PartialOrd<$rhs> for $lhs {
             #[inline]
             fn partial_cmp(&self, other: &$rhs) -> Option<Ordering> {
-                <Utf8Path as PartialOrd>::partial_cmp(self, other)
+                <AbsoluteSystemPath as PartialOrd>::partial_cmp(self, other)
             }
         }
 
@@ -2789,17 +2789,17 @@ macro_rules! impl_cmp {
         impl<'a, 'b> PartialOrd<$lhs> for $rhs {
             #[inline]
             fn partial_cmp(&self, other: &$lhs) -> Option<Ordering> {
-                <Utf8Path as PartialOrd>::partial_cmp(self, other)
+                <AbsoluteSystemPath as PartialOrd>::partial_cmp(self, other)
             }
         }
     };
 }
 
-impl_cmp!(Utf8PathBuf, Utf8Path);
-impl_cmp!(Utf8PathBuf, &'a Utf8Path);
-impl_cmp!(Cow<'a, Utf8Path>, Utf8Path);
-impl_cmp!(Cow<'a, Utf8Path>, &'b Utf8Path);
-impl_cmp!(Cow<'a, Utf8Path>, Utf8PathBuf);
+impl_cmp!(AbsoluteSystemPathBuf, AbsoluteSystemPath);
+impl_cmp!(AbsoluteSystemPathBuf, &'a AbsoluteSystemPath);
+impl_cmp!(Cow<'a, AbsoluteSystemPath>, AbsoluteSystemPath);
+impl_cmp!(Cow<'a, AbsoluteSystemPath>, &'b AbsoluteSystemPath);
+impl_cmp!(Cow<'a, AbsoluteSystemPath>, AbsoluteSystemPathBuf);
 
 macro_rules! impl_cmp_std_path {
     ($lhs:ty, $rhs: ty) => {
@@ -2837,18 +2837,18 @@ macro_rules! impl_cmp_std_path {
     };
 }
 
-impl_cmp_std_path!(Utf8PathBuf, Path);
-impl_cmp_std_path!(Utf8PathBuf, &'a Path);
-impl_cmp_std_path!(Utf8PathBuf, Cow<'a, Path>);
-impl_cmp_std_path!(Utf8PathBuf, PathBuf);
-impl_cmp_std_path!(Utf8Path, Path);
-impl_cmp_std_path!(Utf8Path, &'a Path);
-impl_cmp_std_path!(Utf8Path, Cow<'a, Path>);
-impl_cmp_std_path!(Utf8Path, PathBuf);
-impl_cmp_std_path!(&'a Utf8Path, Path);
-impl_cmp_std_path!(&'a Utf8Path, Cow<'b, Path>);
-impl_cmp_std_path!(&'a Utf8Path, PathBuf);
-// NOTE: impls for Cow<'a, Utf8Path> cannot be defined because of the orphan rule (E0117)
+impl_cmp_std_path!(AbsoluteSystemPathBuf, Path);
+impl_cmp_std_path!(AbsoluteSystemPathBuf, &'a Path);
+impl_cmp_std_path!(AbsoluteSystemPathBuf, Cow<'a, Path>);
+impl_cmp_std_path!(AbsoluteSystemPathBuf, PathBuf);
+impl_cmp_std_path!(AbsoluteSystemPath, Path);
+impl_cmp_std_path!(AbsoluteSystemPath, &'a Path);
+impl_cmp_std_path!(AbsoluteSystemPath, Cow<'a, Path>);
+impl_cmp_std_path!(AbsoluteSystemPath, PathBuf);
+impl_cmp_std_path!(&'a AbsoluteSystemPath, Path);
+impl_cmp_std_path!(&'a AbsoluteSystemPath, Cow<'b, Path>);
+impl_cmp_std_path!(&'a AbsoluteSystemPath, PathBuf);
+// NOTE: impls for Cow<'a, AbsoluteSystemPath> cannot be defined because of the orphan rule (E0117)
 
 macro_rules! impl_cmp_str {
     ($lhs:ty, $rhs: ty) => {
@@ -2856,7 +2856,7 @@ macro_rules! impl_cmp_str {
         impl<'a, 'b> PartialEq<$rhs> for $lhs {
             #[inline]
             fn eq(&self, other: &$rhs) -> bool {
-                <Utf8Path as PartialEq>::eq(self, Utf8Path::new(other))
+                <AbsoluteSystemPath as PartialEq>::eq(self, AbsoluteSystemPath::new(other))
             }
         }
 
@@ -2864,7 +2864,7 @@ macro_rules! impl_cmp_str {
         impl<'a, 'b> PartialEq<$lhs> for $rhs {
             #[inline]
             fn eq(&self, other: &$lhs) -> bool {
-                <Utf8Path as PartialEq>::eq(Utf8Path::new(self), other)
+                <AbsoluteSystemPath as PartialEq>::eq(AbsoluteSystemPath::new(self), other)
             }
         }
 
@@ -2872,7 +2872,7 @@ macro_rules! impl_cmp_str {
         impl<'a, 'b> PartialOrd<$rhs> for $lhs {
             #[inline]
             fn partial_cmp(&self, other: &$rhs) -> Option<std::cmp::Ordering> {
-                <Utf8Path as PartialOrd>::partial_cmp(self, Utf8Path::new(other))
+                <AbsoluteSystemPath as PartialOrd>::partial_cmp(self, AbsoluteSystemPath::new(other))
             }
         }
 
@@ -2880,24 +2880,24 @@ macro_rules! impl_cmp_str {
         impl<'a, 'b> PartialOrd<$lhs> for $rhs {
             #[inline]
             fn partial_cmp(&self, other: &$lhs) -> Option<std::cmp::Ordering> {
-                <Utf8Path as PartialOrd>::partial_cmp(Utf8Path::new(self), other)
+                <AbsoluteSystemPath as PartialOrd>::partial_cmp(AbsoluteSystemPath::new(self), other)
             }
         }
     };
 }
 
-impl_cmp_str!(Utf8PathBuf, str);
-impl_cmp_str!(Utf8PathBuf, &'a str);
-impl_cmp_str!(Utf8PathBuf, Cow<'a, str>);
-impl_cmp_str!(Utf8PathBuf, String);
-impl_cmp_str!(Utf8Path, str);
-impl_cmp_str!(Utf8Path, &'a str);
-impl_cmp_str!(Utf8Path, Cow<'a, str>);
-impl_cmp_str!(Utf8Path, String);
-impl_cmp_str!(&'a Utf8Path, str);
-impl_cmp_str!(&'a Utf8Path, Cow<'b, str>);
-impl_cmp_str!(&'a Utf8Path, String);
-// NOTE: impls for Cow<'a, Utf8Path> cannot be defined because of the orphan rule (E0117)
+impl_cmp_str!(AbsoluteSystemPathBuf, str);
+impl_cmp_str!(AbsoluteSystemPathBuf, &'a str);
+impl_cmp_str!(AbsoluteSystemPathBuf, Cow<'a, str>);
+impl_cmp_str!(AbsoluteSystemPathBuf, String);
+impl_cmp_str!(AbsoluteSystemPath, str);
+impl_cmp_str!(AbsoluteSystemPath, &'a str);
+impl_cmp_str!(AbsoluteSystemPath, Cow<'a, str>);
+impl_cmp_str!(AbsoluteSystemPath, String);
+impl_cmp_str!(&'a AbsoluteSystemPath, str);
+impl_cmp_str!(&'a AbsoluteSystemPath, Cow<'b, str>);
+impl_cmp_str!(&'a AbsoluteSystemPath, String);
+// NOTE: impls for Cow<'a, AbsoluteSystemPath> cannot be defined because of the orphan rule (E0117)
 
 macro_rules! impl_cmp_os_str {
     ($lhs:ty, $rhs: ty) => {
@@ -2935,18 +2935,18 @@ macro_rules! impl_cmp_os_str {
     };
 }
 
-impl_cmp_os_str!(Utf8PathBuf, OsStr);
-impl_cmp_os_str!(Utf8PathBuf, &'a OsStr);
-impl_cmp_os_str!(Utf8PathBuf, Cow<'a, OsStr>);
-impl_cmp_os_str!(Utf8PathBuf, OsString);
-impl_cmp_os_str!(Utf8Path, OsStr);
-impl_cmp_os_str!(Utf8Path, &'a OsStr);
-impl_cmp_os_str!(Utf8Path, Cow<'a, OsStr>);
-impl_cmp_os_str!(Utf8Path, OsString);
-impl_cmp_os_str!(&'a Utf8Path, OsStr);
-impl_cmp_os_str!(&'a Utf8Path, Cow<'b, OsStr>);
-impl_cmp_os_str!(&'a Utf8Path, OsString);
-// NOTE: impls for Cow<'a, Utf8Path> cannot be defined because of the orphan rule (E0117)
+impl_cmp_os_str!(AbsoluteSystemPathBuf, OsStr);
+impl_cmp_os_str!(AbsoluteSystemPathBuf, &'a OsStr);
+impl_cmp_os_str!(AbsoluteSystemPathBuf, Cow<'a, OsStr>);
+impl_cmp_os_str!(AbsoluteSystemPathBuf, OsString);
+impl_cmp_os_str!(AbsoluteSystemPath, OsStr);
+impl_cmp_os_str!(AbsoluteSystemPath, &'a OsStr);
+impl_cmp_os_str!(AbsoluteSystemPath, Cow<'a, OsStr>);
+impl_cmp_os_str!(AbsoluteSystemPath, OsString);
+impl_cmp_os_str!(&'a AbsoluteSystemPath, OsStr);
+impl_cmp_os_str!(&'a AbsoluteSystemPath, Cow<'b, OsStr>);
+impl_cmp_os_str!(&'a AbsoluteSystemPath, OsString);
+// NOTE: impls for Cow<'a, AbsoluteSystemPath> cannot be defined because of the orphan rule (E0117)
 
 // invariant: OsStr must be guaranteed to be utf8 data
 unsafe fn assume_utf8(string: &OsStr) -> &str {

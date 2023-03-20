@@ -1,23 +1,23 @@
 // Copyright (c) The camino Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-use camino::Utf8PathBuf;
+use pathological::AbsoluteSystemPathBuf;
 use clap::Parser;
 
-/// This example shows how a `Utf8Path` can be used with `clap`'s derive-based argument parsing.
+/// This example shows how a `AbsoluteSystemPath` can be used with `clap`'s derive-based argument parsing.
 ///
-/// Using a `Utf8Path` in argument parsing in this manner means that non-UTF-8 paths can be rejected
+/// Using a `AbsoluteSystemPath` in argument parsing in this manner means that non-UTF-8 paths can be rejected
 /// at the boundaries of your program.
 ///
-/// To run this example, run `cargo run --package camino-examples --bin clap-derive`.
+/// To run this example, run `cargo run --package pathological-examples --bin clap-derive`.
 #[derive(Parser)]
 #[clap(rename_all = "kebab-case")]
 struct Opt {
     /// Input file
-    input: Utf8PathBuf,
+    input: AbsoluteSystemPathBuf,
 
     /// Output file
-    output: Option<Utf8PathBuf>,
+    output: Option<AbsoluteSystemPathBuf>,
 }
 
 pub fn main() {

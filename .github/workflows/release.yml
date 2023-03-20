@@ -8,7 +8,7 @@ on:
 
 jobs:
   create-release:
-    if: github.repository_owner == 'camino-rs'
+    if: github.repository_owner == 'nathanhammond'
     runs-on: ubuntu-18.04
     steps:
       - uses: actions/checkout@v3
@@ -22,8 +22,8 @@ jobs:
       - uses: taiki-e/create-gh-release-action@v1
         with:
           changelog: CHANGELOG.md
-          title: camino $version
+          title: pathological $version
           branch: main
-          prefix: camino
+          prefix: pathological
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -2,36 +2,36 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 use anyhow::Result;
-use camino::{Utf8Path, Utf8PathBuf};
+use pathological::{AbsoluteSystemPath, AbsoluteSystemPathBuf};
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 
-/// This example demonstrates how to use a `Utf8Path` in a `serde` struct.
+/// This example demonstrates how to use a `AbsoluteSystemPath` in a `serde` struct.
 ///
-/// With the `serde1` feature, `camino` paths can be used as targets for `serde` serialization and
+/// With the `serde1` feature, `pathological` paths can be used as targets for `serde` serialization and
 /// deserialization. (Note that serde itself [does not support] parsing non-UTF-8 `PathBuf`s, so
-/// there is no loss of generality in switching to `Utf8PathBuf` instances.)
+/// there is no loss of generality in switching to `AbsoluteSystemPathBuf` instances.)
 ///
-/// To run this example, run `cargo run --package camino-examples --bin serde`.
+/// To run this example, run `cargo run --package pathological-examples --bin serde`.
 ///
 /// [does not support]: https://docs.rs/crate/serde/1.0.123/source/src/de/impls.rs
 #[derive(Serialize, Deserialize)]
 struct MyStruct {
-    input: Utf8PathBuf,
-    output: Utf8PathBuf,
+    input: AbsoluteSystemPathBuf,
+    output: AbsoluteSystemPathBuf,
 }
 
-/// A borrowed version of `MyStruct`, to demonstrate zero-copy deserialization to `Utf8Path`s.
+/// A borrowed version of `MyStruct`, to demonstrate zero-copy deserialization to `AbsoluteSystemPath`s.
 #[derive(Serialize, Deserialize)]
 struct MyStructBorrowed<'a> {
     #[serde(borrow)]
-    input: &'a Utf8Path,
+    input: &'a AbsoluteSystemPath,
     // Note: This always deserializes to an owned string because of
-    // https://github.com/serde-rs/serde/issues/1852. In the future we may add a `camino-utils`
-    // library with a `CowUtf8Path<'a>` wrapper which can deserialize to the borrowed implementation
+    // https://github.com/serde-rs/serde/issues/1852. In the future we may add a `pathological-utils`
+    // library with a `CowAbsoluteSystemPath<'a>` wrapper which can deserialize to the borrowed implementation
     // if possible.
     #[serde(borrow)]
-    output: Cow<'a, Utf8Path>,
+    output: Cow<'a, AbsoluteSystemPath>,
 }
 
 static JSON_STR: &str = "{ \"input\": \"/foo/bar\", \"output\": \"/baz\\\\/quux\" }";

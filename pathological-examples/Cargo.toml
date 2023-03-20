@@ -1,13 +1,13 @@
 [package]
-name = "camino-examples"
-description = "Examples for camino"
+name = "pathological-examples"
+description = "Examples for pathological"
 version = "0.1.0"
 edition = "2018"
 publish = false
 
 [dependencies]
 anyhow = "1.0.38"
-camino = { path = "..", features = ["serde1"] }
+pathological = { path = "..", features = ["serde1"] }
 clap = { version = "3.0.7", features = ["derive"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1.0.62" }

@@ -1,16 +1,16 @@
 [workspace]
-members = [".", "camino-examples"]
+members = [".", "pathological-examples"]
 
 [package]
-name = "camino"
+name = "pathological"
 description = "UTF-8 paths"
 version = "1.1.4"
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 keywords = ["paths", "utf8", "unicode", "filesystem"]
 categories = ["development-tools", "filesystem", "os"]
-repository = "https://github.com/camino-rs/camino"
-documentation = "https://docs.rs/camino"
+repository = "https://github.com/nathanhammond/pathological"
+documentation = "https://docs.rs/pathological"
 authors = [
     "Without Boats <saoirse@without.boats>",
     "Ashley Williams <ashley666ashley@gmail.com>",

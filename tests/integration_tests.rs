@@ -1,7 +1,7 @@
 // Copyright (c) The camino Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-use camino::{Utf8Path, Utf8PathBuf};
+use pathological::{AbsoluteSystemPath, AbsoluteSystemPathBuf};
 use std::{
     collections::hash_map::DefaultHasher,
     hash::{Hash, Hasher},
@@ -42,14 +42,14 @@ static PATH_CORPUS: &[&str] = &[
 
 #[test]
 fn test_borrow_eq_ord() {
-    // Utf8PathBuf implements Borrow<Utf8Path> so equality and ordering comparisons should
+    // AbsoluteSystemPathBuf implements Borrow<AbsoluteSystemPath> so equality and ordering comparisons should
     // match.
     for (idx, &path1) in PATH_CORPUS.iter().enumerate() {
         for &path2 in &PATH_CORPUS[idx..] {
-            let borrowed1 = Utf8Path::new(path1);
-            let borrowed2 = Utf8Path::new(path2);
-            let owned1 = Utf8PathBuf::from(path1);
-            let owned2 = Utf8PathBuf::from(path2);
+            let borrowed1 = AbsoluteSystemPath::new(path1);
+            let borrowed2 = AbsoluteSystemPath::new(path2);
+            let owned1 = AbsoluteSystemPathBuf::from(path1);
+            let owned2 = AbsoluteSystemPathBuf::from(path2);
 
             assert_eq!(
                 borrowed1 == borrowed2,
@@ -71,7 +71,7 @@ fn test_borrow_eq_ord() {
             let std2 = Path::new(path2);
             assert_eq!(
                 borrowed1, std1,
-                "Eq between Path and Utf8Path: {}",
+                "Eq between Path and AbsoluteSystemPath: {}",
                 borrowed1
             );
             assert_eq!(
@@ -94,7 +94,7 @@ fn test_borrow_eq_ord() {
 
 #[test]
 fn test_borrow_hash() {
-    // Utf8PathBuf implements Borrow<Utf8Path> so hash comparisons should match.
+    // AbsoluteSystemPathBuf implements Borrow<AbsoluteSystemPath> so hash comparisons should match.
     fn hash_output(x: impl Hash) -> u64 {
         let mut hasher = DefaultHasher::new();
         x.hash(&mut hasher);
@@ -102,8 +102,8 @@ fn test_borrow_hash() {
     }
 
     for &path in PATH_CORPUS {
-        let borrowed = Utf8Path::new(path);
-        let owned = Utf8PathBuf::from(path);
+        let borrowed = AbsoluteSystemPath::new(path);
+        let owned = AbsoluteSystemPathBuf::from(path);
 
         assert_eq!(
             hash_output(owned),

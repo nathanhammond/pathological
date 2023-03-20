@@ -1,19 +1,19 @@
 // Copyright (c) The camino Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-//! Serde implementations for `Utf8Path`.
+//! Serde implementations for `AbsoluteSystemPath`.
 //!
-//! The Serde implementations for `Utf8PathBuf` are derived, but `Utf8Path` is an unsized type which
+//! The Serde implementations for `AbsoluteSystemPathBuf` are derived, but `AbsoluteSystemPath` is an unsized type which
 //! the derive impls can't handle. Implement these by hand.
 
-use crate::Utf8Path;
+use crate::AbsoluteSystemPath;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
 
-struct Utf8PathVisitor;
+struct AbsoluteSystemPathVisitor;
 
-impl<'a> de::Visitor<'a> for Utf8PathVisitor {
-    type Value = &'a Utf8Path;
+impl<'a> de::Visitor<'a> for AbsoluteSystemPathVisitor {
+    type Value = &'a AbsoluteSystemPath;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         formatter.write_str("a borrowed path")
@@ -37,17 +37,17 @@ impl<'a> de::Visitor<'a> for Utf8PathVisitor {
 }
 
 #[cfg(feature = "serde1")]
-impl<'de: 'a, 'a> Deserialize<'de> for &'a Utf8Path {
+impl<'de: 'a, 'a> Deserialize<'de> for &'a AbsoluteSystemPath {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        deserializer.deserialize_str(Utf8PathVisitor)
+        deserializer.deserialize_str(AbsoluteSystemPathVisitor)
     }
 }
 
 #[cfg(feature = "serde1")]
-impl Serialize for Utf8Path {
+impl Serialize for AbsoluteSystemPath {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -59,7 +59,7 @@ impl Serialize for Utf8Path {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::Utf8PathBuf;
+    use crate::AbsoluteSystemPathBuf;
     use serde_bytes::ByteBuf;
 
     #[test]
@@ -144,13 +144,13 @@ mod tests {
 
     trait TestTrait<'de>: Deserialize<'de> + fmt::Debug {
         fn description() -> &'static str;
-        fn path(&self) -> &Utf8Path;
+        fn path(&self) -> &AbsoluteSystemPath;
     }
 
     #[derive(Deserialize, Debug)]
     #[allow(unused)]
     struct DecodeOwned {
-        path: Utf8PathBuf,
+        path: AbsoluteSystemPathBuf,
     }
 
     impl<'de> TestTrait<'de> for DecodeOwned {
@@ -158,7 +158,7 @@ mod tests {
             "DecodeOwned"
         }
 
-        fn path(&self) -> &Utf8Path {
+        fn path(&self) -> &AbsoluteSystemPath {
             &self.path
         }
     }
@@ -167,7 +167,7 @@ mod tests {
     #[allow(unused)]
     struct DecodeBorrowed<'a> {
         #[serde(borrow)]
-        path: &'a Utf8Path,
+        path: &'a AbsoluteSystemPath,
     }
 
     impl<'de> TestTrait<'de> for DecodeBorrowed<'de> {
@@ -175,7 +175,7 @@ mod tests {
             "DecodeBorrowed"
         }
 
-        fn path(&self) -> &Utf8Path {
+        fn path(&self) -> &AbsoluteSystemPath {
             self.path
         }
     }
