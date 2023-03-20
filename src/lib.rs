@@ -39,8 +39,7 @@ use std::{
     convert::{Infallible, TryFrom, TryInto},
     error,
     ffi::{OsStr, OsString},
-    fmt,
-    fs::{self, Metadata},
+    fmt, fs,
     hash::{Hash, Hasher},
     io,
     iter::FusedIterator,
@@ -153,9 +152,10 @@ impl AbsoluteSystemPathBuf {
     /// AbsoluteSystemPathBuf::from_path_buf(non_unicode_path).expect_err("non-Unicode path failed");
     /// ```
     pub fn from_path_buf(path: PathBuf) -> Result<AbsoluteSystemPathBuf, PathBuf> {
-        match path.into_os_string().into_string() {
-            Ok(string) => Ok(AbsoluteSystemPathBuf::from(string)),
-            Err(os_string) => Err(PathBuf::from(os_string)),
+        if path.is_absolute() {
+            Ok(AbsoluteSystemPathBuf(path))
+        } else {
+            Err(path)
         }
     }
 
@@ -169,14 +169,15 @@ impl AbsoluteSystemPathBuf {
     /// ```
     /// use pathological::AbsoluteSystemPathBuf;
     /// use std::path::PathBuf;
+    /// use std::ffi::OsStr;
     ///
-    /// let utf8_path_buf = AbsoluteSystemPathBuf::from("foo.txt");
+    /// let utf8_path_buf = AbsoluteSystemPathBuf::from("/foo.txt");
     /// let std_path_buf = utf8_path_buf.into_std_path_buf();
-    /// assert_eq!(std_path_buf.to_str(), Some("foo.txt"));
+    /// assert_eq!(std_path_buf.to_str(), Some("/foo.txt"));
     ///
     /// // Convert back to a AbsoluteSystemPathBuf.
     /// let new_utf8_path_buf = AbsoluteSystemPathBuf::from_path_buf(std_path_buf).unwrap();
-    /// assert_eq!(new_utf8_path_buf, "foo.txt");
+    /// assert_eq!(new_utf8_path_buf, OsStr::new("/foo.txt"));
     /// ```
     #[must_use = "`self` will be dropped if the result is not used"]
     pub fn into_std_path_buf(self) -> PathBuf {
@@ -500,7 +501,7 @@ impl fmt::Debug for AbsoluteSystemPathBuf {
 
 impl fmt::Display for AbsoluteSystemPathBuf {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        fmt::Display::fmt(self.as_str(), f)
+        fmt::Display::fmt(&self.0.display(), f)
     }
 }
 
@@ -526,6 +527,7 @@ impl<P: AsRef<AbsoluteSystemPath>> Extend<P> for AbsoluteSystemPathBuf {
 /// # Examples
 ///
 /// ```
+/// use std::ffi::OsStr;
 /// use pathological::AbsoluteSystemPath;
 ///
 /// // Note: this example does work on Windows
@@ -535,12 +537,11 @@ impl<P: AsRef<AbsoluteSystemPath>> Extend<P> for AbsoluteSystemPathBuf {
 /// assert_eq!(parent, Some(AbsoluteSystemPath::new("./foo")));
 ///
 /// let file_stem = path.file_stem();
-/// assert_eq!(file_stem, Some("bar"));
+/// assert_eq!(file_stem, Some(OsStr::new("bar")));
 ///
 /// let extension = path.extension();
-/// assert_eq!(extension, Some("txt"));
+/// assert_eq!(extension, Some(OsStr::new("txt")));
 /// ```
-// NB: Internal Path must only contain utf8 data
 #[repr(transparent)]
 pub struct AbsoluteSystemPath(Path);
 
@@ -567,7 +568,7 @@ impl AbsoluteSystemPath {
     /// let from_path = AbsoluteSystemPath::new(&from_string);
     /// assert_eq!(from_string, from_path);
     /// ```
-    pub fn new(s: &(impl AsRef<str> + ?Sized)) -> &AbsoluteSystemPath {
+    pub fn new(s: &(impl AsRef<OsStr> + ?Sized)) -> &AbsoluteSystemPath {
         let path = Path::new(s.as_ref());
         // SAFETY: s is a str which means it is always valid UTF-8
         unsafe { AbsoluteSystemPath::coerce_absolute_system_path(path) }
@@ -601,7 +602,11 @@ impl AbsoluteSystemPath {
     /// assert!(AbsoluteSystemPath::from_path(non_unicode_path).is_none(), "non-Unicode path failed");
     /// ```
     pub fn from_path(path: &Path) -> Option<&AbsoluteSystemPath> {
-        path.as_os_str().to_str().map(AbsoluteSystemPath::new)
+        if path.is_absolute() {
+            Some(AbsoluteSystemPath::new(path.as_os_str()))
+        } else {
+            None
+        }
     }
 
     /// Converts a `AbsoluteSystemPath` to a [`Path`].
@@ -613,38 +618,18 @@ impl AbsoluteSystemPath {
     /// ```
     /// use pathological::AbsoluteSystemPath;
     /// use std::path::Path;
+    /// use std::ffi::OsStr;
     ///
-    /// let utf8_path = AbsoluteSystemPath::new("foo.txt");
+    /// let utf8_path = AbsoluteSystemPath::new("/foo.txt");
     /// let std_path: &Path = utf8_path.as_std_path();
-    /// assert_eq!(std_path.to_str(), Some("foo.txt"));
+    /// assert_eq!(std_path.to_str(), Some("/foo.txt"));
     ///
     /// // Convert back to a AbsoluteSystemPath.
     /// let new_utf8_path = AbsoluteSystemPath::from_path(std_path).unwrap();
-    /// assert_eq!(new_utf8_path, "foo.txt");
+    /// assert_eq!(new_utf8_path, OsStr::new("/foo.txt"));
     /// ```
     pub fn as_std_path(&self) -> &Path {
         self.as_ref()
-    }
-
-    /// Yields the underlying [`str`] slice.
-    ///
-    /// Unlike [`Path::to_str`], this always returns a slice because the contents of a `AbsoluteSystemPath`
-    /// are guaranteed to be valid UTF-8.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use pathological::AbsoluteSystemPath;
-    ///
-    /// let s = AbsoluteSystemPath::new("foo.txt").as_str();
-    /// assert_eq!(s, "foo.txt");
-    /// ```
-    ///
-    /// [`str`]: str
-    #[must_use]
-    pub fn as_str(&self) -> &str {
-        // SAFETY: every AbsoluteSystemPath constructor ensures that self is valid UTF-8
-        unsafe { assume_utf8(self.as_os_str()) }
     }
 
     /// Yields the underlying [`OsStr`] slice.
@@ -807,21 +792,19 @@ impl AbsoluteSystemPath {
     /// # Examples
     ///
     /// ```
+    /// use std::ffi::OsStr;
     /// use pathological::AbsoluteSystemPath;
     ///
-    /// assert_eq!(Some("bin"), AbsoluteSystemPath::new("/usr/bin/").file_name());
-    /// assert_eq!(Some("foo.txt"), AbsoluteSystemPath::new("tmp/foo.txt").file_name());
-    /// assert_eq!(Some("foo.txt"), AbsoluteSystemPath::new("foo.txt/.").file_name());
-    /// assert_eq!(Some("foo.txt"), AbsoluteSystemPath::new("foo.txt/.//").file_name());
+    /// assert_eq!(Some(OsStr::new("bin")), AbsoluteSystemPath::new("/usr/bin/").file_name());
+    /// assert_eq!(Some(OsStr::new("foo.txt")), AbsoluteSystemPath::new("tmp/foo.txt").file_name());
+    /// assert_eq!(Some(OsStr::new("foo.txt")), AbsoluteSystemPath::new("foo.txt/.").file_name());
+    /// assert_eq!(Some(OsStr::new("foo.txt")), AbsoluteSystemPath::new("foo.txt/.//").file_name());
     /// assert_eq!(None, AbsoluteSystemPath::new("foo.txt/..").file_name());
     /// assert_eq!(None, AbsoluteSystemPath::new("/").file_name());
     /// ```
     #[must_use]
-    pub fn file_name(&self) -> Option<&str> {
-        self.0.file_name().map(|s| {
-            // SAFETY: self is valid UTF-8, so file_name is valid UTF-8 as well
-            unsafe { assume_utf8(s) }
-        })
+    pub fn file_name(&self) -> Option<&OsStr> {
+        self.0.file_name()
     }
 
     /// Returns a path that, when joined onto `base`, yields `self`.
@@ -933,11 +916,8 @@ impl AbsoluteSystemPath {
     /// assert_eq!("foo.tar", AbsoluteSystemPath::new("foo.tar.gz").file_stem().unwrap());
     /// ```
     #[must_use]
-    pub fn file_stem(&self) -> Option<&str> {
-        self.0.file_stem().map(|s| {
-            // SAFETY: self is valid UTF-8, so file_stem is valid UTF-8 as well
-            unsafe { assume_utf8(s) }
-        })
+    pub fn file_stem(&self) -> Option<&OsStr> {
+        self.0.file_stem()
     }
 
     /// Extracts the extension of [`self.file_name`], if possible.
@@ -960,11 +940,8 @@ impl AbsoluteSystemPath {
     /// assert_eq!("gz", AbsoluteSystemPath::new("foo.tar.gz").extension().unwrap());
     /// ```
     #[must_use]
-    pub fn extension(&self) -> Option<&str> {
-        self.0.extension().map(|s| {
-            // SAFETY: self is valid UTF-8, so extension is valid UTF-8 as well
-            unsafe { assume_utf8(s) }
-        })
+    pub fn extension(&self) -> Option<&OsStr> {
+        self.0.extension()
     }
 
     /// Creates an owned [`AbsoluteSystemPathBuf`] with `path` adjoined to `self`.
@@ -1062,13 +1039,14 @@ impl AbsoluteSystemPath {
     /// # Examples
     ///
     /// ```
+    /// use std::ffi::OsStr;
     /// use pathological::{AbsoluteSystemPathComponent, AbsoluteSystemPath};
     ///
     /// let mut components = AbsoluteSystemPath::new("/tmp/foo.txt").components();
     ///
     /// assert_eq!(components.next(), Some(AbsoluteSystemPathComponent::RootDir));
-    /// assert_eq!(components.next(), Some(AbsoluteSystemPathComponent::Normal("tmp")));
-    /// assert_eq!(components.next(), Some(AbsoluteSystemPathComponent::Normal("foo.txt")));
+    /// assert_eq!(components.next(), Some(AbsoluteSystemPathComponent::Normal(OsStr::new("tmp"))));
+    /// assert_eq!(components.next(), Some(AbsoluteSystemPathComponent::Normal(OsStr::new("foo.txt"))));
     /// assert_eq!(components.next(), None)
     /// ```
     ///
@@ -1088,12 +1066,13 @@ impl AbsoluteSystemPath {
     /// # Examples
     ///
     /// ```
+    /// use std::ffi::OsStr;
     /// use pathological::AbsoluteSystemPath;
     ///
     /// let mut it = AbsoluteSystemPath::new("/tmp/foo.txt").iter();
-    /// assert_eq!(it.next(), Some(std::path::MAIN_SEPARATOR.to_string().as_str()));
-    /// assert_eq!(it.next(), Some("tmp"));
-    /// assert_eq!(it.next(), Some("foo.txt"));
+    /// assert_eq!(it.next(), Some(OsStr::new(&std::path::MAIN_SEPARATOR.to_string())));
+    /// assert_eq!(it.next(), Some(OsStr::new("tmp")));
+    /// assert_eq!(it.next(), Some(OsStr::new("foo.txt")));
     /// assert_eq!(it.next(), None)
     /// ```
     pub fn iter(&self) -> Iter<'_> {
@@ -1142,10 +1121,6 @@ impl AbsoluteSystemPath {
     /// Returns the canonical, absolute form of the path with all intermediate
     /// components normalized and symbolic links resolved.
     ///
-    /// This returns a [`PathBuf`] because even if a symlink is valid Unicode, its target may not
-    /// be. For a version that returns a [`AbsoluteSystemPathBuf`], see
-    /// [`canonicalize_utf8`](Self::canonicalize_utf8).
-    ///
     /// This is an alias to [`fs::canonicalize`].
     ///
     /// # Examples
@@ -1157,36 +1132,9 @@ impl AbsoluteSystemPath {
     /// let path = AbsoluteSystemPath::new("/foo/test/../test/bar.rs");
     /// assert_eq!(path.canonicalize().unwrap(), PathBuf::from("/foo/test/bar.rs"));
     /// ```
-    pub fn canonicalize(&self) -> io::Result<PathBuf> {
-        self.0.canonicalize()
-    }
-
-    /// Returns the canonical, absolute form of the path with all intermediate
-    /// components normalized and symbolic links resolved.
-    ///
-    /// This method attempts to convert the resulting [`PathBuf`] into a [`AbsoluteSystemPathBuf`]. For a
-    /// version that does not attempt to do this conversion, see
-    /// [`canonicalize`](Self::canonicalize).
-    ///
-    /// # Errors
-    ///
-    /// The I/O operation may return an error: see the [`fs::canonicalize`]
-    /// documentation for more.
-    ///
-    /// If the resulting path is not UTF-8, an [`io::Error`] is returned with the
-    /// [`ErrorKind`](io::ErrorKind) set to `InvalidData` and the payload set to a
-    /// [`FromPathBufError`].
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// use pathological::{AbsoluteSystemPath, AbsoluteSystemPathBuf};
-    ///
-    /// let path = AbsoluteSystemPath::new("/foo/test/../test/bar.rs");
-    /// assert_eq!(path.canonicalize_utf8().unwrap(), AbsoluteSystemPathBuf::from("/foo/test/bar.rs"));
-    /// ```
-    pub fn canonicalize_utf8(&self) -> io::Result<AbsoluteSystemPathBuf> {
-        self.canonicalize()
+    pub fn canonicalize(&self) -> io::Result<AbsoluteSystemPathBuf> {
+        self.0
+            .canonicalize()
             .and_then(|path| path.try_into().map_err(FromPathBufError::into_io_error))
     }
 
@@ -1210,33 +1158,6 @@ impl AbsoluteSystemPath {
         self.0.read_link()
     }
 
-    /// Reads a symbolic link, returning the file that the link points to.
-    ///
-    /// This method attempts to convert the resulting [`PathBuf`] into a [`AbsoluteSystemPathBuf`]. For a
-    /// version that does not attempt to do this conversion, see [`read_link`](Self::read_link).
-    ///
-    /// # Errors
-    ///
-    /// The I/O operation may return an error: see the [`fs::read_link`]
-    /// documentation for more.
-    ///
-    /// If the resulting path is not UTF-8, an [`io::Error`] is returned with the
-    /// [`ErrorKind`](io::ErrorKind) set to `InvalidData` and the payload set to a
-    /// [`FromPathBufError`].
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// use pathological::AbsoluteSystemPath;
-    ///
-    /// let path = AbsoluteSystemPath::new("/laputa/sky_castle.rs");
-    /// let path_link = path.read_link_utf8().expect("read_link call failed");
-    /// ```
-    pub fn read_link_utf8(&self) -> io::Result<AbsoluteSystemPathBuf> {
-        self.read_link()
-            .and_then(|path| path.try_into().map_err(FromPathBufError::into_io_error))
-    }
-
     /// Returns an iterator over the entries within a directory.
     ///
     /// The iterator will yield instances of [`io::Result`]`<`[`fs::DirEntry`]`>`. New
@@ -1258,39 +1179,6 @@ impl AbsoluteSystemPath {
     /// ```
     pub fn read_dir(&self) -> io::Result<fs::ReadDir> {
         self.0.read_dir()
-    }
-
-    /// Returns an iterator over the entries within a directory.
-    ///
-    /// The iterator will yield instances of [`io::Result`]`<`[`AbsoluteSystemPathDirEntry`]`>`. New
-    /// errors may be encountered after an iterator is initially constructed.
-    ///
-    /// # Errors
-    ///
-    /// The I/O operation may return an error: see the [`fs::read_dir`]
-    /// documentation for more.
-    ///
-    /// If a directory entry is not UTF-8, an [`io::Error`] is returned with the
-    /// [`ErrorKind`](io::ErrorKind) set to `InvalidData` and the payload set to a
-    /// [`FromPathBufError`].
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// use pathological::AbsoluteSystemPath;
-    ///
-    /// let path = AbsoluteSystemPath::new("/laputa");
-    /// for entry in path.read_dir_utf8().expect("read_dir call failed") {
-    ///     if let Ok(entry) = entry {
-    ///         println!("{}", entry.path());
-    ///     }
-    /// }
-    /// ```
-    #[inline]
-    pub fn read_dir_utf8(&self) -> io::Result<ReadDirAbsoluteSystemPath> {
-        self.0
-            .read_dir()
-            .map(|inner| ReadDirAbsoluteSystemPath { inner })
     }
 
     /// Returns `true` if the path points at an existing entity.
@@ -1492,13 +1380,13 @@ impl Clone for Box<AbsoluteSystemPath> {
 
 impl fmt::Display for AbsoluteSystemPath {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        fmt::Display::fmt(self.as_str(), f)
+        fmt::Display::fmt(&self.0.display(), f)
     }
 }
 
 impl fmt::Debug for AbsoluteSystemPath {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        fmt::Debug::fmt(self.as_str(), f)
+        fmt::Debug::fmt(&self.0, f)
     }
 }
 
@@ -1631,12 +1519,6 @@ impl AsRef<Path> for AbsoluteSystemPathComponents<'_> {
     }
 }
 
-impl AsRef<str> for AbsoluteSystemPathComponents<'_> {
-    fn as_ref(&self) -> &str {
-        self.as_path().as_ref()
-    }
-}
-
 impl AsRef<OsStr> for AbsoluteSystemPathComponents<'_> {
     fn as_ref(&self) -> &OsStr {
         self.as_path().as_os_str()
@@ -1703,12 +1585,6 @@ impl AsRef<Path> for Iter<'_> {
     }
 }
 
-impl AsRef<str> for Iter<'_> {
-    fn as_ref(&self) -> &str {
-        self.as_path().as_ref()
-    }
-}
-
 impl AsRef<OsStr> for Iter<'_> {
     fn as_ref(&self) -> &OsStr {
         self.as_path().as_os_str()
@@ -1716,16 +1592,18 @@ impl AsRef<OsStr> for Iter<'_> {
 }
 
 impl<'a> Iterator for Iter<'a> {
-    type Item = &'a str;
+    type Item = &'a OsStr;
 
-    fn next(&mut self) -> Option<&'a str> {
-        self.inner.next().map(|component| component.as_str())
+    fn next(&mut self) -> Option<&'a OsStr> {
+        self.inner.next().map(|component| component.as_os_str())
     }
 }
 
 impl<'a> DoubleEndedIterator for Iter<'a> {
-    fn next_back(&mut self) -> Option<&'a str> {
-        self.inner.next_back().map(|component| component.as_str())
+    fn next_back(&mut self) -> Option<&'a OsStr> {
+        self.inner
+            .next_back()
+            .map(|component| component.as_os_str())
     }
 }
 
@@ -1748,9 +1626,9 @@ impl FusedIterator for Iter<'_> {}
 /// let components = path.components().collect::<Vec<_>>();
 /// assert_eq!(&components, &[
 ///     AbsoluteSystemPathComponent::RootDir,
-///     AbsoluteSystemPathComponent::Normal("tmp"),
-///     AbsoluteSystemPathComponent::Normal("foo"),
-///     AbsoluteSystemPathComponent::Normal("bar.txt"),
+///     AbsoluteSystemPathComponent::Normal("tmp".as_ref()),
+///     AbsoluteSystemPathComponent::Normal("foo".as_ref()),
+///     AbsoluteSystemPathComponent::Normal("bar.txt".as_ref()),
 /// ]);
 /// ```
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
@@ -1778,7 +1656,7 @@ pub enum AbsoluteSystemPathComponent<'a> {
     ///
     /// This variant is the most common one, it represents references to files
     /// or directories.
-    Normal(&'a str),
+    Normal(&'a OsStr),
 }
 
 impl<'a> AbsoluteSystemPathComponent<'a> {
@@ -1790,26 +1668,8 @@ impl<'a> AbsoluteSystemPathComponent<'a> {
             Component::RootDir => AbsoluteSystemPathComponent::RootDir,
             Component::CurDir => AbsoluteSystemPathComponent::CurDir,
             Component::ParentDir => AbsoluteSystemPathComponent::ParentDir,
-            Component::Normal(s) => AbsoluteSystemPathComponent::Normal(assume_utf8(s)),
+            Component::Normal(s) => AbsoluteSystemPathComponent::Normal(s),
         }
-    }
-
-    /// Extracts the underlying [`str`] slice.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use pathological::AbsoluteSystemPath;
-    ///
-    /// let path = AbsoluteSystemPath::new("./tmp/foo/bar.txt");
-    /// let components: Vec<_> = path.components().map(|comp| comp.as_str()).collect();
-    /// assert_eq!(&components, &[".", "tmp", "foo", "bar.txt"]);
-    /// ```
-    #[must_use]
-    pub fn as_str(&self) -> &'a str {
-        // SAFETY: AbsoluteSystemPathComponent was constructed from a AbsoluteSystemPath, so it is guaranteed to be
-        // valid UTF-8
-        unsafe { assume_utf8(self.as_os_str()) }
     }
 
     /// Extracts the underlying [`OsStr`] slice.
@@ -1841,27 +1701,9 @@ impl<'a> fmt::Debug for AbsoluteSystemPathComponent<'a> {
     }
 }
 
-impl<'a> fmt::Display for AbsoluteSystemPathComponent<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        fmt::Display::fmt(self.as_str(), f)
-    }
-}
-
-impl AsRef<AbsoluteSystemPath> for AbsoluteSystemPathComponent<'_> {
-    fn as_ref(&self) -> &AbsoluteSystemPath {
-        self.as_str().as_ref()
-    }
-}
-
 impl AsRef<Path> for AbsoluteSystemPathComponent<'_> {
     fn as_ref(&self) -> &Path {
         self.as_os_str().as_ref()
-    }
-}
-
-impl AsRef<str> for AbsoluteSystemPathComponent<'_> {
-    fn as_ref(&self) -> &str {
-        self.as_str()
     }
 }
 
@@ -1882,6 +1724,7 @@ impl AsRef<OsStr> for AbsoluteSystemPathComponent<'_> {
 /// # Examples
 ///
 /// ```
+/// use std::ffi::OsStr;
 /// use pathological::{AbsoluteSystemPathComponent, AbsoluteSystemPath, AbsoluteSystemPathPrefix};
 /// use pathological::AbsoluteSystemPathPrefix::*;
 ///
@@ -1894,11 +1737,11 @@ impl AsRef<OsStr> for AbsoluteSystemPathComponent<'_> {
 /// }
 ///
 /// # if cfg!(windows) {
-/// assert_eq!(Verbatim("pictures"), get_path_prefix(r"\\?\pictures\kittens"));
-/// assert_eq!(VerbatimUNC("server", "share"), get_path_prefix(r"\\?\UNC\server\share"));
+/// assert_eq!(Verbatim(OsStr::new("pictures")), get_path_prefix(r"\\?\pictures\kittens"));
+/// assert_eq!(VerbatimUNC(OsStr::new("server"), OsStr::new("share")), get_path_prefix(r"\\?\UNC\server\share"));
 /// assert_eq!(VerbatimDisk(b'C'), get_path_prefix(r"\\?\c:\"));
-/// assert_eq!(DeviceNS("BrainInterface"), get_path_prefix(r"\\.\BrainInterface"));
-/// assert_eq!(UNC("server", "share"), get_path_prefix(r"\\server\share"));
+/// assert_eq!(DeviceNS(OsStr::new("BrainInterface")), get_path_prefix(r"\\.\BrainInterface"));
+/// assert_eq!(UNC(OsStr::new("server"), OsStr::new("share")), get_path_prefix(r"\\server\share"));
 /// assert_eq!(Disk(b'C'), get_path_prefix(r"C:\Users\Rust\Pictures\Ferris"));
 /// # }
 /// ```
@@ -1908,14 +1751,14 @@ pub enum AbsoluteSystemPathPrefix<'a> {
     ///
     /// Verbatim prefixes consist of `\\?\` immediately followed by the given
     /// component.
-    Verbatim(&'a str),
+    Verbatim(&'a OsStr),
 
     /// Verbatim prefix using Windows' _**U**niform **N**aming **C**onvention_,
     /// e.g., `\\?\UNC\server\share`.
     ///
     /// Verbatim UNC prefixes consist of `\\?\UNC\` immediately followed by the
     /// server's hostname and a share name.
-    VerbatimUNC(&'a str, &'a str),
+    VerbatimUNC(&'a OsStr, &'a OsStr),
 
     /// Verbatim disk prefix, e.g., `\\?\C:`.
     ///
@@ -1926,14 +1769,14 @@ pub enum AbsoluteSystemPathPrefix<'a> {
     /// Device namespace prefix, e.g., `\\.\COM42`.
     ///
     /// Device namespace prefixes consist of `\\.\` immediately followed by the
-    /// device name.
-    DeviceNS(&'a str),
+    /// device name.&'a (impl AsRef<OsStr>)
+    DeviceNS(&'a OsStr),
 
     /// Prefix using Windows' _**U**niform **N**aming **C**onvention_, e.g.
     /// `\\server\share`.
     ///
     /// UNC prefixes consist of the server's hostname and a share name.
-    UNC(&'a str, &'a str),
+    UNC(&'a OsStr, &'a OsStr),
 
     /// Prefix `C:` for the given disk drive.
     Disk(u8),
@@ -1945,13 +1788,14 @@ impl<'a> AbsoluteSystemPathPrefix<'a> {
     /// # Examples
     ///
     /// ```
+    /// use std::ffi::OsStr;
     /// use pathological::AbsoluteSystemPathPrefix::*;
     ///
-    /// assert!(Verbatim("pictures").is_verbatim());
-    /// assert!(VerbatimUNC("server", "share").is_verbatim());
+    /// assert!(Verbatim(OsStr::new("pictures")).is_verbatim());
+    /// assert!(VerbatimUNC(OsStr::new("server"), OsStr::new("share")).is_verbatim());
     /// assert!(VerbatimDisk(b'C').is_verbatim());
-    /// assert!(!DeviceNS("BrainInterface").is_verbatim());
-    /// assert!(!UNC("server", "share").is_verbatim());
+    /// assert!(!DeviceNS(OsStr::new("BrainInterface")).is_verbatim());
+    /// assert!(!UNC(OsStr::new("server"), OsStr::new("share")).is_verbatim());
     /// assert!(!Disk(b'C').is_verbatim());
     /// ```
     #[must_use]
@@ -1987,7 +1831,7 @@ impl<'a> AbsoluteSystemPathPrefix<'a> {
 /// match path.components().next().unwrap() {
 ///     AbsoluteSystemPathComponent::Prefix(prefix_component) => {
 ///         assert_eq!(AbsoluteSystemPathPrefix::Disk(b'C'), prefix_component.kind());
-///         assert_eq!("c:", prefix_component.as_str());
+///         assert_eq!(OsStr::new("c:"), prefix_component.as_os_str());
 ///     }
 ///     _ => unreachable!(),
 /// }
@@ -2011,33 +1855,21 @@ impl<'a> AbsoluteSystemPathPrefixComponent<'a> {
         // SAFETY for all the below unsafe blocks: the path self was originally constructed from was
         // UTF-8 so any parts of it are valid UTF-8
         match self.0.kind() {
-            Prefix::Verbatim(prefix) => {
-                AbsoluteSystemPathPrefix::Verbatim(unsafe { assume_utf8(prefix) })
-            }
+            Prefix::Verbatim(prefix) => AbsoluteSystemPathPrefix::Verbatim(prefix),
             Prefix::VerbatimUNC(server, share) => {
-                let server = unsafe { assume_utf8(server) };
-                let share = unsafe { assume_utf8(share) };
+                let server = server;
+                let share = share;
                 AbsoluteSystemPathPrefix::VerbatimUNC(server, share)
             }
             Prefix::VerbatimDisk(drive) => AbsoluteSystemPathPrefix::VerbatimDisk(drive),
-            Prefix::DeviceNS(prefix) => {
-                AbsoluteSystemPathPrefix::DeviceNS(unsafe { assume_utf8(prefix) })
-            }
+            Prefix::DeviceNS(prefix) => AbsoluteSystemPathPrefix::DeviceNS(prefix),
             Prefix::UNC(server, share) => {
-                let server = unsafe { assume_utf8(server) };
-                let share = unsafe { assume_utf8(share) };
+                let server = server;
+                let share = share;
                 AbsoluteSystemPathPrefix::UNC(server, share)
             }
             Prefix::Disk(drive) => AbsoluteSystemPathPrefix::Disk(drive),
         }
-    }
-
-    /// Returns the [`str`] slice for this prefix.
-    #[must_use]
-    pub fn as_str(&self) -> &'a str {
-        // SAFETY: AbsoluteSystemPathPrefixComponent was constructed from a AbsoluteSystemPath, so it is guaranteed to be
-        // valid UTF-8
-        unsafe { assume_utf8(self.as_os_str()) }
     }
 
     /// Returns the raw [`OsStr`] slice for this prefix.
@@ -2053,212 +1885,14 @@ impl<'a> fmt::Debug for AbsoluteSystemPathPrefixComponent<'a> {
     }
 }
 
-impl<'a> fmt::Display for AbsoluteSystemPathPrefixComponent<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        fmt::Display::fmt(self.as_str(), f)
-    }
-}
-
-// ---
-// read_dir_utf8
-// ---
-
-/// Iterator over the entries in a directory.
-///
-/// This iterator is returned from [`AbsoluteSystemPath::read_dir_utf8`] and will yield instances of
-/// <code>[io::Result]<[AbsoluteSystemPathDirEntry]></code>. Through a [`AbsoluteSystemPathDirEntry`] information like the entry's path
-/// and possibly other metadata can be learned.
-///
-/// The order in which this iterator returns entries is platform and filesystem
-/// dependent.
-///
-/// # Errors
-///
-/// This [`io::Result`] will be an [`Err`] if there's some sort of intermittent
-/// IO error during iteration.
-///
-/// If a directory entry is not UTF-8, an [`io::Error`] is returned with the
-/// [`ErrorKind`](io::ErrorKind) set to `InvalidData` and the payload set to a [`FromPathBufError`].
-#[derive(Debug)]
-pub struct ReadDirAbsoluteSystemPath {
-    inner: fs::ReadDir,
-}
-
-impl Iterator for ReadDirAbsoluteSystemPath {
-    type Item = io::Result<AbsoluteSystemPathDirEntry>;
-
-    fn next(&mut self) -> Option<io::Result<AbsoluteSystemPathDirEntry>> {
-        self.inner
-            .next()
-            .map(|entry| entry.and_then(AbsoluteSystemPathDirEntry::new))
-    }
-}
-
-/// Entries returned by the [`ReadDirAbsoluteSystemPath`] iterator.
-///
-/// An instance of `AbsoluteSystemPathDirEntry` represents an entry inside of a directory on the filesystem. Each
-/// entry can be inspected via methods to learn about the full path or possibly other metadata.
-#[derive(Debug)]
-pub struct AbsoluteSystemPathDirEntry {
-    inner: fs::DirEntry,
-    path: AbsoluteSystemPathBuf,
-}
-
-impl AbsoluteSystemPathDirEntry {
-    fn new(inner: fs::DirEntry) -> io::Result<Self> {
-        let path = inner
-            .path()
-            .try_into()
-            .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?;
-        Ok(Self { inner, path })
-    }
-
-    /// Returns the full path to the file that this entry represents.
-    ///
-    /// The full path is created by joining the original path to `read_dir`
-    /// with the filename of this entry.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// use pathological::AbsoluteSystemPath;
-    ///
-    /// fn main() -> std::io::Result<()> {
-    ///     for entry in AbsoluteSystemPath::new(".").read_dir_utf8()? {
-    ///         let dir = entry?;
-    ///         println!("{}", dir.path());
-    ///     }
-    ///     Ok(())
-    /// }
-    /// ```
-    ///
-    /// This prints output like:
-    ///
-    /// ```text
-    /// ./whatever.txt
-    /// ./foo.html
-    /// ./hello_world.rs
-    /// ```
-    ///
-    /// The exact text, of course, depends on what files you have in `.`.
-    #[inline]
-    pub fn path(&self) -> &AbsoluteSystemPath {
-        &self.path
-    }
-
-    /// Returns the metadata for the file that this entry points at.
-    ///
-    /// This function will not traverse symlinks if this entry points at a symlink. To traverse
-    /// symlinks use [`AbsoluteSystemPath::metadata`] or [`fs::File::metadata`].
-    ///
-    /// # Platform-specific behavior
-    ///
-    /// On Windows this function is cheap to call (no extra system calls
-    /// needed), but on Unix platforms this function is the equivalent of
-    /// calling `symlink_metadata` on the path.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use pathological::AbsoluteSystemPath;
-    ///
-    /// if let Ok(entries) = AbsoluteSystemPath::new(".").read_dir_utf8() {
-    ///     for entry in entries {
-    ///         if let Ok(entry) = entry {
-    ///             // Here, `entry` is a `AbsoluteSystemPathDirEntry`.
-    ///             if let Ok(metadata) = entry.metadata() {
-    ///                 // Now let's show our entry's permissions!
-    ///                 println!("{}: {:?}", entry.path(), metadata.permissions());
-    ///             } else {
-    ///                 println!("Couldn't get metadata for {}", entry.path());
-    ///             }
-    ///         }
-    ///     }
-    /// }
-    /// ```
-    #[inline]
-    pub fn metadata(&self) -> io::Result<Metadata> {
-        self.inner.metadata()
-    }
-
-    /// Returns the file type for the file that this entry points at.
-    ///
-    /// This function will not traverse symlinks if this entry points at a
-    /// symlink.
-    ///
-    /// # Platform-specific behavior
-    ///
-    /// On Windows and most Unix platforms this function is free (no extra
-    /// system calls needed), but some Unix platforms may require the equivalent
-    /// call to `symlink_metadata` to learn about the target file type.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use pathological::AbsoluteSystemPath;
-    ///
-    /// if let Ok(entries) = AbsoluteSystemPath::new(".").read_dir_utf8() {
-    ///     for entry in entries {
-    ///         if let Ok(entry) = entry {
-    ///             // Here, `entry` is a `DirEntry`.
-    ///             if let Ok(file_type) = entry.file_type() {
-    ///                 // Now let's show our entry's file type!
-    ///                 println!("{}: {:?}", entry.path(), file_type);
-    ///             } else {
-    ///                 println!("Couldn't get file type for {}", entry.path());
-    ///             }
-    ///         }
-    ///     }
-    /// }
-    /// ```
-    #[inline]
-    pub fn file_type(&self) -> io::Result<fs::FileType> {
-        self.inner.file_type()
-    }
-
-    /// Returns the bare file name of this directory entry without any other
-    /// leading path component.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use pathological::AbsoluteSystemPath;
-    ///
-    /// if let Ok(entries) = AbsoluteSystemPath::new(".").read_dir_utf8() {
-    ///     for entry in entries {
-    ///         if let Ok(entry) = entry {
-    ///             // Here, `entry` is a `DirEntry`.
-    ///             println!("{}", entry.file_name());
-    ///         }
-    ///     }
-    /// }
-    /// ```
-    pub fn file_name(&self) -> &str {
-        self.path
-            .file_name()
-            .expect("path created through DirEntry must have a filename")
-    }
-
-    /// Returns the original [`fs::DirEntry`] within this [`AbsoluteSystemPathDirEntry`].
-    #[inline]
-    pub fn into_inner(self) -> fs::DirEntry {
-        self.inner
-    }
-
-    /// Returns the full path to the file that this entry represents.
-    ///
-    /// This is analogous to [`path`], but moves ownership of the path.
-    ///
-    /// [`path`]: struct.AbsoluteSystemPathDirEntry.html#method.path
-    #[inline]
-    #[must_use = "`self` will be dropped if the result is not used"]
-    pub fn into_path(self) -> AbsoluteSystemPathBuf {
-        self.path
-    }
-}
-
 impl From<String> for AbsoluteSystemPathBuf {
     fn from(string: String) -> AbsoluteSystemPathBuf {
+        AbsoluteSystemPathBuf(string.into())
+    }
+}
+
+impl From<OsString> for AbsoluteSystemPathBuf {
+    fn from(string: OsString) -> AbsoluteSystemPathBuf {
         AbsoluteSystemPathBuf(string.into())
     }
 }
@@ -2284,14 +1918,13 @@ impl<'a> From<&'a str> for &'a AbsoluteSystemPath {
 // ---
 // From impls: borrowed -> owned
 // ---
-
-impl<T: ?Sized + AsRef<str>> From<&T> for AbsoluteSystemPathBuf {
+impl<T: ?Sized + AsRef<OsStr>> From<&T> for AbsoluteSystemPathBuf {
     fn from(s: &T) -> AbsoluteSystemPathBuf {
-        AbsoluteSystemPathBuf::from(s.as_ref().to_owned())
+        AbsoluteSystemPathBuf::from(s.as_ref().to_os_string())
     }
 }
 
-impl<T: ?Sized + AsRef<str>> From<&T> for Box<AbsoluteSystemPath> {
+impl<T: ?Sized + AsRef<OsStr>> From<&T> for Box<AbsoluteSystemPath> {
     fn from(s: &T) -> Box<AbsoluteSystemPath> {
         AbsoluteSystemPathBuf::from(s).into_boxed_path()
     }
@@ -2646,18 +2279,6 @@ impl AsRef<Path> for AbsoluteSystemPathBuf {
     }
 }
 
-impl AsRef<str> for AbsoluteSystemPath {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-
-impl AsRef<str> for AbsoluteSystemPathBuf {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-
 impl AsRef<OsStr> for AbsoluteSystemPath {
     fn as_ref(&self) -> &OsStr {
         self.as_os_str()
@@ -2755,7 +2376,7 @@ impl Ord for AbsoluteSystemPath {
 }
 
 impl<'a> IntoIterator for &'a AbsoluteSystemPathBuf {
-    type Item = &'a str;
+    type Item = &'a OsStr;
     type IntoIter = Iter<'a>;
     fn into_iter(self) -> Iter<'a> {
         self.iter()
@@ -2763,7 +2384,7 @@ impl<'a> IntoIterator for &'a AbsoluteSystemPathBuf {
 }
 
 impl<'a> IntoIterator for &'a AbsoluteSystemPath {
-    type Item = &'a str;
+    type Item = &'a OsStr;
     type IntoIter = Iter<'a>;
     fn into_iter(self) -> Iter<'a> {
         self.iter()
@@ -2861,61 +2482,6 @@ impl_cmp_std_path!(&'a AbsoluteSystemPath, Cow<'b, Path>);
 impl_cmp_std_path!(&'a AbsoluteSystemPath, PathBuf);
 // NOTE: impls for Cow<'a, AbsoluteSystemPath> cannot be defined because of the orphan rule (E0117)
 
-macro_rules! impl_cmp_str {
-    ($lhs:ty, $rhs: ty) => {
-        #[allow(clippy::extra_unused_lifetimes)]
-        impl<'a, 'b> PartialEq<$rhs> for $lhs {
-            #[inline]
-            fn eq(&self, other: &$rhs) -> bool {
-                <AbsoluteSystemPath as PartialEq>::eq(self, AbsoluteSystemPath::new(other))
-            }
-        }
-
-        #[allow(clippy::extra_unused_lifetimes)]
-        impl<'a, 'b> PartialEq<$lhs> for $rhs {
-            #[inline]
-            fn eq(&self, other: &$lhs) -> bool {
-                <AbsoluteSystemPath as PartialEq>::eq(AbsoluteSystemPath::new(self), other)
-            }
-        }
-
-        #[allow(clippy::extra_unused_lifetimes)]
-        impl<'a, 'b> PartialOrd<$rhs> for $lhs {
-            #[inline]
-            fn partial_cmp(&self, other: &$rhs) -> Option<std::cmp::Ordering> {
-                <AbsoluteSystemPath as PartialOrd>::partial_cmp(
-                    self,
-                    AbsoluteSystemPath::new(other),
-                )
-            }
-        }
-
-        #[allow(clippy::extra_unused_lifetimes)]
-        impl<'a, 'b> PartialOrd<$lhs> for $rhs {
-            #[inline]
-            fn partial_cmp(&self, other: &$lhs) -> Option<std::cmp::Ordering> {
-                <AbsoluteSystemPath as PartialOrd>::partial_cmp(
-                    AbsoluteSystemPath::new(self),
-                    other,
-                )
-            }
-        }
-    };
-}
-
-impl_cmp_str!(AbsoluteSystemPathBuf, str);
-impl_cmp_str!(AbsoluteSystemPathBuf, &'a str);
-impl_cmp_str!(AbsoluteSystemPathBuf, Cow<'a, str>);
-impl_cmp_str!(AbsoluteSystemPathBuf, String);
-impl_cmp_str!(AbsoluteSystemPath, str);
-impl_cmp_str!(AbsoluteSystemPath, &'a str);
-impl_cmp_str!(AbsoluteSystemPath, Cow<'a, str>);
-impl_cmp_str!(AbsoluteSystemPath, String);
-impl_cmp_str!(&'a AbsoluteSystemPath, str);
-impl_cmp_str!(&'a AbsoluteSystemPath, Cow<'b, str>);
-impl_cmp_str!(&'a AbsoluteSystemPath, String);
-// NOTE: impls for Cow<'a, AbsoluteSystemPath> cannot be defined because of the orphan rule (E0117)
-
 macro_rules! impl_cmp_os_str {
     ($lhs:ty, $rhs: ty) => {
         #[allow(clippy::extra_unused_lifetimes)]
@@ -2964,8 +2530,3 @@ impl_cmp_os_str!(&'a AbsoluteSystemPath, OsStr);
 impl_cmp_os_str!(&'a AbsoluteSystemPath, Cow<'b, OsStr>);
 impl_cmp_os_str!(&'a AbsoluteSystemPath, OsString);
 // NOTE: impls for Cow<'a, AbsoluteSystemPath> cannot be defined because of the orphan rule (E0117)
-
-// invariant: OsStr must be guaranteed to be utf8 data
-unsafe fn assume_utf8(string: &OsStr) -> &str {
-    &*(string as *const OsStr as *const str)
-}
